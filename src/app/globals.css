@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Companion Design System Variables */
+:root {
+  /* Primary Colors */
+  --deep-calm-blue: #2C5F7C;
+  --soft-sage: #A8C5B5;
+  --warm-neutral: #F5F3EF;
+  
+  /* Emotional State Colors */
+  --serene-green: #6B9E78;
+  --gentle-amber: #E8B563;
+  --soft-coral: #D99B7C;
+  --muted-lavender: #B4A5C7;
+  
+  /* Accent Colors */
+  --highlight-teal: #4A9B9B;
+  
+  /* Semantic Colors */
+  --background: #FEFEFE;
+  --foreground: #1A1A1A;
+  --muted: #6B7280;
+}
+
+@theme inline {
+  /* Custom Color Palette */
+  --color-primary: var(--deep-calm-blue);
+  --color-primary-light: #3A7794;
+  --color-primary-dark: #1E4A5F;
+  
+  --color-secondary: var(--soft-sage);
+  --color-accent: var(--highlight-teal);
+  --color-neutral: var(--warm-neutral);
+  
+  /* Emotional States */
+  --color-calm: var(--serene-green);
+  --color-managing: var(--gentle-amber);
+  --color-challenging: var(--soft-coral);
+  --color-mixed: var(--muted-lavender);
+  
+  /* Semantic Colors */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: #E5E7EB;
+  
+  /* Spacing Scale */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  
+  /* Border Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+  
+  /* Typography */
+  --font-sans: -apple-system, "SF Pro Text", Inter, system-ui, sans-serif;
+}
+
+/* Global Styles */
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus styles for accessibility */
+:focus-visible {
+  outline: 2px solid var(--highlight-teal);
+  outline-offset: 2px;
+}
