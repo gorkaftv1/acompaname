@@ -161,7 +161,8 @@ export interface Database {
                     id: string
                     title: string
                     description: string | null
-                    is_active: boolean
+                    is_onboarding: boolean
+                    status: 'draft' | 'published' | 'archived'
                     created_at: string
                     updated_at: string
                 }
@@ -169,7 +170,8 @@ export interface Database {
                     id?: string
                     title: string
                     description?: string | null
-                    is_active?: boolean
+                    is_onboarding?: boolean
+                    status?: 'draft' | 'published' | 'archived'
                     created_at?: string
                     updated_at?: string
                 }
@@ -177,7 +179,8 @@ export interface Database {
                     id?: string
                     title?: string
                     description?: string | null
-                    is_active?: boolean
+                    is_onboarding?: boolean
+                    status?: 'draft' | 'published' | 'archived'
                     created_at?: string
                     updated_at?: string
                 }
@@ -191,7 +194,7 @@ export interface Database {
                     title: string
                     description: string | null
                     type: 'single_choice' | 'multiple_choice' | 'text'
-                    is_first_question: boolean
+                    show_if: Json | null
                     is_deleted: boolean
                     created_at: string
                     updated_at: string
@@ -203,7 +206,7 @@ export interface Database {
                     title: string
                     description?: string | null
                     type?: 'single_choice' | 'multiple_choice' | 'text'
-                    is_first_question?: boolean
+                    show_if?: Json | null
                     is_deleted?: boolean
                     created_at?: string
                     updated_at?: string
@@ -215,7 +218,7 @@ export interface Database {
                     title?: string
                     description?: string | null
                     type?: 'single_choice' | 'multiple_choice' | 'text'
-                    is_first_question?: boolean
+                    show_if?: Json | null
                     is_deleted?: boolean
                     created_at?: string
                     updated_at?: string
@@ -235,7 +238,7 @@ export interface Database {
                     question_id: string
                     order_index: number
                     text: string
-                    next_question_id: string | null
+                    score: number | null
                     created_at: string
                 }
                 Insert: {
@@ -243,7 +246,7 @@ export interface Database {
                     question_id: string
                     order_index?: number
                     text: string
-                    next_question_id?: string | null
+                    score?: number | null
                     created_at?: string
                 }
                 Update: {
@@ -251,7 +254,7 @@ export interface Database {
                     question_id?: string
                     order_index?: number
                     text?: string
-                    next_question_id?: string | null
+                    score?: number | null
                     created_at?: string
                 }
                 Relationships: [
@@ -260,11 +263,48 @@ export interface Database {
                         columns: ['question_id']
                         referencedRelation: 'questionnaire_questions'
                         referencedColumns: ['id']
+                    }
+                ]
+            }
+            questionnaire_sessions: {
+                Row: {
+                    id: string
+                    user_id: string
+                    questionnaire_id: string
+                    status: 'in_progress' | 'completed' | 'abandoned'
+                    score: number | null
+                    started_at: string
+                    completed_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    questionnaire_id: string
+                    status?: 'in_progress' | 'completed' | 'abandoned'
+                    score?: number | null
+                    started_at?: string
+                    completed_at?: string | null
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    questionnaire_id?: string
+                    status?: 'in_progress' | 'completed' | 'abandoned'
+                    score?: number | null
+                    started_at?: string
+                    completed_at?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: 'questionnaire_sessions_user_id_fkey'
+                        columns: ['user_id']
+                        referencedRelation: 'users'
+                        referencedColumns: ['id']
                     },
                     {
-                        foreignKeyName: 'question_options_next_question_id_fkey'
-                        columns: ['next_question_id']
-                        referencedRelation: 'questionnaire_questions'
+                        foreignKeyName: 'questionnaire_sessions_questionnaire_id_fkey'
+                        columns: ['questionnaire_id']
+                        referencedRelation: 'questionnaires'
                         referencedColumns: ['id']
                     }
                 ]
@@ -273,6 +313,8 @@ export interface Database {
                 Row: {
                     id: string
                     user_id: string
+                    questionnaire_id: string
+                    session_id: string
                     question_id: string
                     option_id: string | null
                     free_text_response: string | null
@@ -282,6 +324,8 @@ export interface Database {
                 Insert: {
                     id?: string
                     user_id: string
+                    questionnaire_id: string
+                    session_id: string
                     question_id: string
                     option_id?: string | null
                     free_text_response?: string | null
@@ -291,6 +335,8 @@ export interface Database {
                 Update: {
                     id?: string
                     user_id?: string
+                    questionnaire_id?: string
+                    session_id?: string
                     question_id?: string
                     option_id?: string | null
                     free_text_response?: string | null
@@ -302,6 +348,12 @@ export interface Database {
                         foreignKeyName: 'questionnaire_responses_user_id_fkey'
                         columns: ['user_id']
                         referencedRelation: 'users'
+                        referencedColumns: ['id']
+                    },
+                    {
+                        foreignKeyName: 'questionnaire_responses_session_id_fkey'
+                        columns: ['session_id']
+                        referencedRelation: 'questionnaire_sessions'
                         referencedColumns: ['id']
                     },
                     {
@@ -325,7 +377,7 @@ export interface Database {
                     id: string
                     title: string
                     description: string | null
-                    is_active: boolean
+                    status: 'draft' | 'published' | 'archived'
                     created_at: string
                     updated_at: string
                 }
@@ -339,7 +391,7 @@ export interface Database {
                     title: string
                     description: string | null
                     type: 'single_choice' | 'multiple_choice' | 'text'
-                    is_first_question: boolean
+                    show_if: Json | null
                     is_deleted: boolean
                     created_at: string
                     updated_at: string
@@ -352,7 +404,7 @@ export interface Database {
                     question_id: string
                     order_index: number
                     text: string
-                    next_question_id: string | null
+                    score: number | null
                     created_at: string
                 }
                 Relationships: []

@@ -15,7 +15,7 @@ interface Survey {
   id: string;
   title: string;
   description: string | null;
-  is_active: boolean;
+  status: string;
   created_at: string;
 }
 
@@ -134,7 +134,7 @@ function AdminContent() {
     try {
       const { data: surveysData, error: surveysError } = await supabase
         .from('questionnaires')
-        .select('id, title, description, is_active, created_at')
+        .select('id, title, description, status, created_at')
         .order('created_at', { ascending: false });
 
       if (surveysError) {
@@ -256,7 +256,7 @@ function AdminContent() {
                   id={survey.id}
                   title={survey.title}
                   description={survey.description}
-                  isActive={survey.is_active}
+                  isActive={survey.status === 'published'}
                   createdAt={survey.created_at}
                   mode="admin"
                   onClick={() => handleEditSurvey(survey.id)}

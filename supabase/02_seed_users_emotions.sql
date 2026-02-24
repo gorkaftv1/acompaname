@@ -1,7 +1,3 @@
--- 01_seed_users_emotions.sql
--- Crea un usuario de prueba en auth.users y su perfil correspondiente
--- Inserta un historial ficticio de emociones diarias.
-
 -- 1. Insertar usuario de prueba en auth.users
 -- El password será 'password123'
 INSERT INTO auth.users (

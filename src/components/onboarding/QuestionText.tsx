@@ -4,8 +4,8 @@
  * QuestionText — Pregunta de tipo 'text'
  *
  * Muestra un textarea libre para que el usuario redacte su respuesta.
- * Al pulsar "Siguiente", el motor buscará la opción fantasma de esta
- * pregunta para determinar el next_question_id.
+ * Al pulsar "Siguiente", el motor buscará la siguiente pregunta
+ * secuencialmente evaluando la condición showIf.
  */
 
 import { useState } from 'react';
@@ -18,12 +18,15 @@ interface QuestionTextProps {
     onSubmit: (value: string) => void;
     /** Deshabilita el formulario mientras se guarda la respuesta. */
     disabled?: boolean;
+    /** Indica si es la última pregunta del cuestionario */
+    isLastQuestion?: boolean;
 }
 
 export default function QuestionText({
     questionText,
     onSubmit,
     disabled = false,
+    isLastQuestion = false,
 }: QuestionTextProps) {
     const [text, setText] = useState('');
 
@@ -96,7 +99,7 @@ export default function QuestionText({
                         </>
                     ) : (
                         <>
-                            Siguiente
+                            {isLastQuestion ? 'Terminar cuestionario' : 'Siguiente'}
                             <ChevronRight className="w-4 h-4" />
                         </>
                     )}

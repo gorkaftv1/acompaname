@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { EmotionalCompanion } from '@/components/EmotionalCompanion';
+import Link from 'next/link';
 import type { WHO5Result } from '@/lib/who5/who5.config';
 
 // ---------------------------------------------------------------------------
@@ -206,6 +207,17 @@ const WHO5Results: React.FC<WHO5ResultsProps> = ({ result, onRetake }) => {
             Repetir cuestionario
           </motion.button>
         )}
+
+        <Link
+          href="/dashboard"
+          className="
+              rounded-2xl border border-[#4A9B9B] bg-[#4A9B9B] px-6 py-3 text-sm
+              font-medium text-white shadow-sm transition-all duration-150
+              hover:border-[#3a8888] hover:bg-[#3a8888]
+            "
+        >
+          Volver al inicio
+        </Link>
 
         <p className="mt-2 max-w-4xl text-center text-[10px] leading-relaxed text-[#D1D5DB]">
           Puntuación &lt; 50 puede indicar bajo bienestar. Consulta con un

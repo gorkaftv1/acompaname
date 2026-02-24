@@ -14,8 +14,8 @@
 export interface OptionNode {
     id: string;
     optionText: string;
-    /** UUID de la siguiente pregunta, o null si este nodo es el final del cuestionario. */
-    nextQuestionId: string | null;
+    /** Score value for scorable questionnaires (e.g. WHO-5). */
+    score: number | null;
     /** true cuando option_text === 'Respuesta libre' (opción fantasma para preguntas de tipo text). */
     isPhantom: boolean;
 }
@@ -28,7 +28,8 @@ export interface QuestionNode {
     questionnaireId: string;
     questionText: string;
     questionType: QuestionType;
-    isFirstQuestion: boolean;
+    orderIndex: number;
+    showIf: any | null; // JSONB representation
     options: OptionNode[];
 }
 
@@ -51,6 +52,8 @@ export interface QuestionnaireEngineState {
     errorMessage: string | null;
     /** Número de preguntas respondidas (para mostrar progreso aproximado). */
     answeredCount: number;
+    /** Sesión activa del cuestionario en curso. */
+    currentSessionId: string | null;
     /** Nombre del usuario (capturado en Q1). */
     userName: string | null;
     /** Nombre de la persona acompañada (capturado en Q2). */

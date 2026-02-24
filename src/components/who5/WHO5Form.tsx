@@ -3,18 +3,19 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  who5Seed,
   allQuestionsAnswered,
-  type WHO5Question,
-  type WHO5Option,
 } from '@/lib/who5/who5.config';
+import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engine.types';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface WHO5FormProps {
+  questions: QuestionNode[];
+  options: OptionNode[];
   onComplete: (answers: Record<string, number>) => void;
+  isSaving?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -22,8 +23,8 @@ interface WHO5FormProps {
 // ---------------------------------------------------------------------------
 
 interface QuestionBlockProps {
-  question: WHO5Question;
-  options: WHO5Option[];
+  question: QuestionNode;
+  options: OptionNode[];
   selectedValue: number | undefined;
   hasError: boolean;
   onChange: (questionId: string, value: number) => void;
@@ -39,7 +40,7 @@ const QuestionBlock: React.FC<QuestionBlockProps> = ({
   <motion.div
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, ease: 'easeOut', delay: question.number * 0.08 }}
+    transition={{ duration: 0.4, ease: 'easeOut', delay: question.orderIndex * 0.08 }}
     className={`
       rounded-2xl border bg-white p-6 shadow-sm transition-shadow duration-200
       ${hasError ? 'border-red-300 ring-1 ring-red-200' : 'border-[#E5E7EB]'}
@@ -51,10 +52,10 @@ const QuestionBlock: React.FC<QuestionBlockProps> = ({
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
         style={{ background: 'linear-gradient(135deg, #A8C5B5, #4A9B9B)' }}
       >
-        {question.number}
+        {question.orderIndex}
       </span>
       <p className="text-[15px] leading-relaxed text-[#1A1A1A]">
-        {question.text}
+        {question.questionText}
       </p>
     </div>
 
@@ -75,36 +76,36 @@ const QuestionBlock: React.FC<QuestionBlockProps> = ({
     {/* Options */}
     <div className="flex flex-col gap-2">
       {options.map((option) => {
-        const isSelected = selectedValue === option.value;
+        // WHO5 standard scores options 5 to 0. We map the option score directly
+        const value = option.score ?? 0;
+        const isSelected = selectedValue === value;
         return (
           <label
-            key={option.value}
+            key={option.id}
             className={`
               flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3
               text-sm transition-all duration-150
-              ${
-                isSelected
-                  ? 'border-[#4A9B9B] bg-[#F0F9F9] text-[#2C5F7C] font-medium'
-                  : 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#A8C5B5] hover:bg-[#F9FAFB]'
+              ${isSelected
+                ? 'border-[#4A9B9B] bg-[#F0F9F9] text-[#2C5F7C] font-medium'
+                : 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#A8C5B5] hover:bg-[#F9FAFB]'
               }
             `}
           >
             <input
               type="radio"
               name={question.id}
-              value={option.value}
+              value={value}
               checked={isSelected}
-              onChange={() => onChange(question.id, option.value)}
+              onChange={() => onChange(question.id, value)}
               className="sr-only"
             />
             {/* Custom radio indicator */}
             <span
               className={`
                 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150
-                ${
-                  isSelected
-                    ? 'border-[#4A9B9B] bg-[#4A9B9B]'
-                    : 'border-[#D1D5DB] bg-white'
+                ${isSelected
+                  ? 'border-[#4A9B9B] bg-[#4A9B9B]'
+                  : 'border-[#D1D5DB] bg-white'
                 }
               `}
             >
@@ -112,7 +113,7 @@ const QuestionBlock: React.FC<QuestionBlockProps> = ({
                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
               )}
             </span>
-            <span>{option.label}</span>
+            <span>{option.optionText}</span>
           </label>
         );
       })}
@@ -124,7 +125,7 @@ const QuestionBlock: React.FC<QuestionBlockProps> = ({
 // Main component
 // ---------------------------------------------------------------------------
 
-const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
+const WHO5Form: React.FC<WHO5FormProps> = ({ questions, options, onComplete, isSaving }) => {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [showErrors, setShowErrors] = useState(false);
   const firstUnansweredRef = useRef<string | null>(null);
@@ -133,7 +134,7 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
     // Clear error state for this question if user just answered it
     if (showErrors) {
-      const stillUnanswered = who5Seed.questions.some(
+      const stillUnanswered = questions.some(
         (q) => q.id !== questionId && !(q.id in answers)
       );
       if (!stillUnanswered) setShowErrors(false);
@@ -141,10 +142,10 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
   };
 
   const handleSubmit = () => {
-    if (!allQuestionsAnswered(answers)) {
+    if (!allQuestionsAnswered(answers, questions.length)) {
       setShowErrors(true);
       // Scroll to first unanswered question
-      const first = who5Seed.questions.find((q) => !(q.id in answers));
+      const first = questions.find((q) => !(q.id in answers));
       if (first) {
         firstUnansweredRef.current = first.id;
         const el = document.getElementById(`question-${first.id}`);
@@ -156,8 +157,8 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
   };
 
   const answeredCount = Object.keys(answers).length;
-  const totalCount = who5Seed.questions.length;
-  const progressPct = (answeredCount / totalCount) * 100;
+  const totalCount = questions.length;
+  const progressPct = totalCount === 0 ? 0 : (answeredCount / totalCount) * 100;
 
   return (
     <div className="w-full mx-auto max-w-4xl px-4 sm:px-6 py-10">
@@ -172,10 +173,10 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
           Bienestar
         </p>
         <h1 className="mb-2 text-2xl font-semibold text-[#1A1A1A]">
-          {who5Seed.title}
+          WHO-5 — Índice de Bienestar
         </h1>
         <p className="mx-auto max-w-10xl text-sm leading-relaxed text-[#6B7280]">
-          {who5Seed.instructions}
+          Por favor, indica para cada una de las siguientes afirmaciones cuál se acerca más a cómo te has sentido durante las últimas dos semanas.
         </p>
       </motion.div>
 
@@ -202,11 +203,11 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
 
       {/* Questions */}
       <div className="flex flex-col gap-5">
-        {who5Seed.questions.map((question) => (
+        {questions.map((question) => (
           <div key={question.id} id={`question-${question.id}`}>
             <QuestionBlock
               question={question}
-              options={who5Seed.options}
+              options={options}
               selectedValue={answers[question.id]}
               hasError={showErrors && !(question.id in answers)}
               onChange={handleChange}
@@ -232,16 +233,23 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
             focus:outline-none focus:ring-2 focus:ring-[#4A9B9B] focus:ring-offset-2
           "
           style={{
-            background: allQuestionsAnswered(answers)
+            background: allQuestionsAnswered(answers, questions.length)
               ? 'linear-gradient(135deg, #4A9B9B, #2C5F7C)'
               : 'linear-gradient(135deg, #A8C5B5, #7BB5B5)',
           }}
         >
-          Terminar
+          {isSaving ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+              Guardando...
+            </span>
+          ) : (
+            'Terminar'
+          )}
         </motion.button>
 
         <AnimatePresence>
-          {showErrors && !allQuestionsAnswered(answers) && (
+          {showErrors && !allQuestionsAnswered(answers, questions.length) && (
             <motion.p
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -261,7 +269,7 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ onComplete }) => {
         transition={{ delay: 0.7 }}
         className="mt-10 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-center text-[11px] leading-relaxed text-[#9CA3AF]"
       >
-        {who5Seed.disclaimer}
+        © Organización Mundial de la Salud, 1998. El cuestionario WHO-5 puede utilizarse libremente. Si se traduce a un nuevo idioma, la traducción debe enviarse a la OMS para su registro. Las traducciones registradas pueden utilizarse de forma gratuita. Fuente: "Mastering Depression in Primary Care", versión 2.2, Unidad de Investigación Psiquiátrica, Centro Colaborador de la OMS en Salud Mental, Hospital General de Frederiksberg, Hillerød, Dinamarca.
       </motion.p>
     </div>
   );

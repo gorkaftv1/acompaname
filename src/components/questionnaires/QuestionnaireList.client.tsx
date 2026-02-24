@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { motion, type Variants, type Transition } from 'framer-motion';
 import { Clock, CheckCircle2, BookOpen, ChevronRight } from 'lucide-react';
 import { useQuestionnaireContext } from '@/lib/hooks/useQuestionnaireContext';
+import { getRelativeTime } from '@/lib/utils/date';
 
 /** Questionnaire IDs that have a dedicated standalone route */
 const STANDALONE_ROUTES: Record<string, string> = {
-  'b0000000-0000-0000-0000-000000000002': '/who-5',
+    'b0000000-0000-0000-0000-000000000002': '/who-5',
 };
 
 export interface QuestionnaireWithProgress {
@@ -16,11 +17,19 @@ export interface QuestionnaireWithProgress {
         id: string;
         title: string;
         description: string | null;
-        is_active: boolean;
+        status: string;
     };
     answeredCount: number;
     totalQuestions: number;
     isCompleted: boolean;
+}
+
+export interface CompletedSessionWithDetails {
+    sessionId: string;
+    questionnaireId: string;
+    title: string;
+    isOnboarding: boolean;
+    completedAt: string;
 }
 
 const listVariants: Variants = {
@@ -146,14 +155,15 @@ export function QuestionnaireListClient({
 }: {
     available: QuestionnaireWithProgress[];
     inProgress: QuestionnaireWithProgress[];
-    completed: QuestionnaireWithProgress[];
+    completed: CompletedSessionWithDetails[];
 }) {
     const { resolvePlaceholders } = useQuestionnaireContext();
     const router = useRouter();
 
     const resolveRoute = (id: string) => STANDALONE_ROUTES[id] ?? `/onboarding?questionnaireId=${id}`;
-    const handleStart    = (id: string) => router.push(resolveRoute(id));
+    const handleStart = (id: string) => router.push(resolveRoute(id));
     const handleContinue = (id: string) => router.push(resolveRoute(id));
+    const handleViewSession = (sessionId: string) => router.push(`/questionnaires/session/${sessionId}`);
 
     const totalCount = available.length + inProgress.length + completed.length;
 
@@ -197,13 +207,47 @@ export function QuestionnaireListClient({
 
                 {completed.length > 0 && (
                     <section>
-                        <SectionHeader icon={<CheckCircle2 size={18} className="text-[#6B9E78]" />} title="Completados" count={completed.length} />
+                        <hr className="my-8 border-[#E5E7EB]" />
+                        <SectionHeader icon={<CheckCircle2 size={18} className="text-[#6B9E78]" />} title="Cuestionarios completados" count={completed.length} />
                         <motion.div variants={listVariants} initial="hidden" animate="visible" className="space-y-4">
-                            {completed.map((item) => (
-                                <motion.div key={item.questionnaire.id} variants={itemVariants}>
-                                    <UserQuestionnaireCard item={item} resolvePlaceholders={resolvePlaceholders} />
-                                </motion.div>
-                            ))}
+                            {completed.map((session) => {
+                                const formattedDate = new Date(session.completedAt).toLocaleDateString();
+                                const relativeTime = getRelativeTime(new Date(session.completedAt));
+
+                                const displayTitle = !session.isOnboarding
+                                    ? `${resolvePlaceholders(session.title)} — Respondido ${relativeTime}`
+                                    : resolvePlaceholders(session.title);
+
+                                return (
+                                    <motion.div key={session.sessionId} variants={itemVariants}>
+                                        <motion.article
+                                            onClick={() => handleViewSession(session.sessionId)}
+                                            whileHover={{ y: -3, boxShadow: '0 12px 24px -6px rgb(0 0 0 / 0.09)' }}
+                                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                                            className="group relative flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#E5E7EB] cursor-pointer"
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex min-w-0 flex-1 items-start gap-3">
+                                                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F5F3EF]">
+                                                        <CheckCircle2 size={18} className="text-[#6B9E78]" />
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <h3 className="truncate text-base font-semibold text-[#1A1A1A] leading-snug">
+                                                            {displayTitle}
+                                                        </h3>
+                                                        <p className="mt-1 text-sm text-[#6B7280]">
+                                                            Completado el {formattedDate}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 flex items-center justify-center text-[#6B7280] group-hover:text-[#4A9B9B] transition-colors">
+                                                    <ChevronRight size={20} />
+                                                </div>
+                                            </div>
+                                        </motion.article>
+                                    </motion.div>
+                                );
+                            })}
                         </motion.div>
                     </section>
                 )}

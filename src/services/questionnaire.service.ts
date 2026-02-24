@@ -14,9 +14,9 @@ type QuestionnaireRow = Database['public']['Tables']['questionnaires']['Row'];
 // Selección parcial usada en getQuestionsMap
 type QuestionSelect = Pick<
   QuestionRow,
-  'id' | 'questionnaire_id' | 'title' | 'type' | 'is_first_question'
+  'id' | 'questionnaire_id' | 'title' | 'type' | 'order_index' | 'show_if'
 >;
-type OptionSelect = Pick<OptionRow, 'id' | 'question_id' | 'text' | 'next_question_id'>;
+type OptionSelect = Pick<OptionRow, 'id' | 'question_id' | 'text' | 'score'>;
 
 // ---------------------------------------------------------------------------
 // Servicio
@@ -33,23 +33,47 @@ export class QuestionnaireService {
   static async getByTitle(
     title: string,
     supabaseClient?: SupabaseClient<Database>,
-  ): Promise<Pick<QuestionnaireRow, 'id' | 'title' | 'description' | 'is_active'>> {
+  ): Promise<Pick<QuestionnaireRow, 'id' | 'title' | 'description' | 'status'>> {
     // Sanitizar únicamente el argumento de entrada (lo que entra desde el usuario/config)
     const cleanTitle = sanitizeString(title, 'questionnaire.title');
     const supabase = supabaseClient ?? createBrowserClient();
 
     const { data, error } = await supabase
       .from('questionnaires')
-      .select('id, title, description, is_active')
+      .select('id, title, description, status')
       .eq('title', cleanTitle)
-      .eq('is_active', true)
+      .eq('status', 'published')
       .maybeSingle();
 
     if (error) throw new Error(`QuestionnaireService.getByTitle: ${error.message}`);
     if (!data) throw new Error(`No se encontró un cuestionario publicado con el título "${cleanTitle}".`);
 
-    // Los datos de la BD ya llegan limpios (el proxy auto-trim actúa en escritura).
     return data;
+  }
+
+  /**
+   * Busca un cuestionario por su ID exacto.
+   */
+  static async getById(
+    id: string,
+    supabaseClient?: SupabaseClient<Database>,
+  ): Promise<(Pick<QuestionnaireRow, 'id' | 'title' | 'description' | 'status'> & { questionsMap: Map<string, QuestionNode> }) | null> {
+    const supabase = supabaseClient ?? createBrowserClient();
+
+    const { data: qData, error: qErr } = await supabase
+      .from('questionnaires')
+      .select('id, title, description, status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (qErr || !qData) return null;
+
+    const questionsMap = await this.getQuestionsMap(id, supabase);
+
+    return {
+      ...qData,
+      questionsMap
+    };
   }
 
   /**
@@ -66,9 +90,10 @@ export class QuestionnaireService {
 
     const { data: questions, error: qErr } = await supabase
       .from('questionnaire_questions')
-      .select('id, questionnaire_id, title, type, is_first_question')
+      .select('id, questionnaire_id, title, type, order_index, show_if')
       .eq('questionnaire_id', questionnaireId)
       .eq('is_deleted', false)
+      .order('order_index')
       .returns<QuestionSelect[]>();
 
     if (qErr) throw new Error(`QuestionnaireService.getQuestionsMap (questions): ${qErr.message}`);
@@ -78,7 +103,7 @@ export class QuestionnaireService {
 
     const { data: options, error: oErr } = await supabase
       .from('question_options')
-      .select('id, question_id, text, next_question_id')
+      .select('id, question_id, text, score')
       .in('question_id', questionIds)
       .returns<OptionSelect[]>();
 
@@ -94,7 +119,7 @@ export class QuestionnaireService {
         id: row.id,
         // isPhantom identifica opciones de preguntas de texto (donde el texto de la opción actúa como placeholder en el front)
         optionText: row.text,
-        nextQuestionId: row.next_question_id,
+        score: row.score,
         isPhantom: textQuestionIds.has(row.question_id) || row.text.trim() === 'Respuesta libre',
       });
       optionsByQuestion.set(row.question_id, opts);
@@ -108,7 +133,8 @@ export class QuestionnaireService {
         questionnaireId: row.questionnaire_id,
         questionText: row.title,
         questionType: row.type as QuestionNode['questionType'],
-        isFirstQuestion: row.is_first_question,
+        orderIndex: row.order_index,
+        showIf: row.show_if,
         options: optionsByQuestion.get(row.id) ?? [],
       });
     }
@@ -117,16 +143,22 @@ export class QuestionnaireService {
   }
 
   /**
-   * Devuelve la pregunta marcada como `is_first_question = true` en el mapa.
+   * Devuelve la pregunta con el orderIndex más bajo (la primera).
    *
-   * @throws Error si ninguna pregunta está marcada como primera.
+   * @throws Error si no hay preguntas.
    */
   static findFirstQuestion(questionsMap: Map<string, QuestionNode>): QuestionNode {
+    let firstNode: QuestionNode | null = null;
     for (const question of questionsMap.values()) {
-      if (question.isFirstQuestion) return question;
+      if (!firstNode || question.orderIndex < firstNode.orderIndex) {
+        firstNode = question;
+      }
     }
-    throw new Error(
-      'QuestionnaireService.findFirstQuestion: No hay ninguna pregunta marcada como is_first_question.',
-    );
+    if (!firstNode) {
+      throw new Error(
+        'QuestionnaireService.findFirstQuestion: No hay ninguna pregunta.',
+      );
+    }
+    return firstNode;
   }
 }

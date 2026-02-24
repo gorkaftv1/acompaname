@@ -26,30 +26,6 @@ import type { EmotionType } from '@/types';
 // Types
 // ---------------------------------------------------------------------------
 
-export interface WHO5Option {
-  value: number;
-  label: string;
-}
-
-export interface WHO5Question {
-  id: string;
-  /** 1-based display number */
-  number: number;
-  text: string;
-}
-
-export interface WHO5Seed {
-  id: string;
-  title: string;
-  description: string;
-  instructions: string;
-  questions: WHO5Question[];
-  options: WHO5Option[];
-  /** Multiply raw score (0-25) by this factor to get 0-100 */
-  scoreFactor: number;
-  disclaimer: string;
-}
-
 export interface WHO5ScoreCategory {
   label: string;
   emotion: EmotionType;
@@ -66,60 +42,8 @@ export interface WHO5Result {
   category: WHO5ScoreCategory;
 }
 
-// ---------------------------------------------------------------------------
-// Questionnaire seed — the single source of truth for the WHO-5 form
-// ---------------------------------------------------------------------------
-
-export const who5Seed: WHO5Seed = {
-  id: 'who-5',
-  title: 'WHO-5 — Índice de Bienestar',
-  description:
-    'Un breve cuestionario validado internacionalmente para evaluar tu bienestar emocional durante las últimas dos semanas.',
-  instructions:
-    'Por favor, indica para cada una de las siguientes afirmaciones cuál se acerca más a cómo te has sentido durante las últimas dos semanas.',
-  questions: [
-    {
-      id: 'who5-q1',
-      number: 1,
-      text: 'Me he sentido alegre y de buen humor.',
-    },
-    {
-      id: 'who5-q2',
-      number: 2,
-      text: 'Me he sentido tranquilo/a y relajado/a.',
-    },
-    {
-      id: 'who5-q3',
-      number: 3,
-      text: 'Me he sentido activo/a y con energía.',
-    },
-    {
-      id: 'who5-q4',
-      number: 4,
-      text: 'Me he despertado sintiéndome fresco/a y descansado/a.',
-    },
-    {
-      id: 'who5-q5',
-      number: 5,
-      text: 'Mi vida cotidiana ha estado llena de cosas que me interesan.',
-    },
-  ],
-  options: [
-    { value: 5, label: 'Todo el tiempo' },
-    { value: 4, label: 'La mayor parte del tiempo' },
-    { value: 3, label: 'Más de la mitad del tiempo' },
-    { value: 2, label: 'Menos de la mitad del tiempo' },
-    { value: 1, label: 'Alguna vez' },
-    { value: 0, label: 'En ningún momento' },
-  ],
-  scoreFactor: 4,
-  disclaimer:
-    '© Organización Mundial de la Salud, 1998. El cuestionario WHO-5 puede utilizarse libremente. ' +
-    'Si se traduce a un nuevo idioma, la traducción debe enviarse a la OMS para su registro. ' +
-    'Las traducciones registradas pueden utilizarse de forma gratuita. ' +
-    'Fuente: "Mastering Depression in Primary Care", versión 2.2, Unidad de Investigación Psiquiátrica, ' +
-    'Centro Colaborador de la OMS en Salud Mental, Hospital General de Frederiksberg, Hillerød, Dinamarca.',
-};
+export const WHO5_SCORE_FACTOR = 4;
+export const WHO5_LEGAL_DISCLAIMER = '© Organización Mundial de la Salud, 1998. El cuestionario WHO-5 puede utilizarse libremente. Si se traduce a un nuevo idioma, la traducción debe enviarse a la OMS para su registro. Las traducciones registradas pueden utilizarse de forma gratuita. Fuente: "Mastering Depression in Primary Care", versión 2.2, Unidad de Investigación Psiquiátrica, Centro Colaborador de la OMS en Salud Mental, Hospital General de Frederiksberg, Hillerød, Dinamarca.';
 
 // ---------------------------------------------------------------------------
 // Score categories — map final score (0-100) to emotion & label
@@ -201,7 +125,7 @@ export function calculateWHO5Score(
   answers: Record<string, number>
 ): WHO5Result {
   const rawScore = Object.values(answers).reduce((sum, v) => sum + v, 0);
-  const finalScore = rawScore * who5Seed.scoreFactor;
+  const finalScore = rawScore * WHO5_SCORE_FACTOR;
 
   const category =
     who5ScoreCategories.find(
@@ -211,11 +135,14 @@ export function calculateWHO5Score(
   return { rawScore, finalScore, category };
 }
 
+export const WHO5_DB_QUESTIONNAIRE_ID = 'b0000000-0000-0000-0000-000000000002';
+
 /**
  * Check whether every question has been answered.
  */
 export function allQuestionsAnswered(
-  answers: Record<string, number>
+  answers: Record<string, number>,
+  questionsCount: number
 ): boolean {
-  return who5Seed.questions.every((q) => q.id in answers);
+  return Object.keys(answers).length === questionsCount;
 }

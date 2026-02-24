@@ -1,7 +1,7 @@
 import { createBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/utils/logger';
 import { sanitizeString } from '@/lib/utils/sanitize';
-import { getGraphProgress, type GraphProgress } from '@/lib/utils/graph-progress';
+import { getLinearProgress, type LinearProgress } from '@/lib/utils/graph-progress';
 import { QuestionnaireService } from './questionnaire.service';
 import type { QuestionNode } from '@/lib/services/questionnaire-engine.types';
 import { ProfileService } from './profile.service';
@@ -61,6 +61,36 @@ export class ResponseService {
         this.setGuestProgress(progress);
     }
 
+    // ── Session Helpers ──
+    static async getOrCreateActiveSession(
+        userId: string,
+        questionnaireId: string,
+        supabaseClient?: SupabaseClient<Database>
+    ): Promise<string> {
+        const supabase = supabaseClient ?? createBrowserClient();
+
+        // Buscar sesión activa
+        const { data: session } = await supabase
+            .from('questionnaire_sessions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('questionnaire_id', questionnaireId)
+            .eq('status', 'in_progress')
+            .maybeSingle();
+
+        if (session) return session.id;
+
+        // Crear nueva sesión
+        const { data: newSession, error } = await supabase
+            .from('questionnaire_sessions')
+            .insert({ user_id: userId, questionnaire_id: questionnaireId, status: 'in_progress' })
+            .select('id')
+            .single();
+
+        if (error) throw new Error(`ResponseService.getOrCreateActiveSession: ${error.message}`);
+        return newSession.id;
+    }
+
     // ── Core Operations ──
 
     /**
@@ -85,14 +115,87 @@ export class ResponseService {
         }
 
         const supabase = createBrowserClient();
+        const sessionId = await this.getOrCreateActiveSession(userId, questionnaireId, supabase);
+
         const { error } = await supabase.from('questionnaire_responses').upsert({
             user_id: userId,
+            questionnaire_id: questionnaireId,
+            session_id: sessionId,
             question_id: questionId,
             option_id: optionId,
             free_text_response: freeText,
-        }, { onConflict: 'user_id,question_id' });
+        }, { onConflict: 'session_id,question_id' });
 
         if (error) throw new Error(`ResponseService.saveResponse: ${error.message}`);
+    }
+
+    /**
+     * Completa la sesión activa para el usuario y cuestionario.
+     * Si no es onboarding, calcula guardando el score.
+     */
+    static async completeSession(
+        userId: string | null | undefined,
+        questionnaireId: string,
+        supabaseClient?: SupabaseClient<Database>
+    ): Promise<void> {
+        if (!userId) return; // Guests will sync on registration
+
+        const supabase = supabaseClient ?? createBrowserClient();
+
+        // 1. Find active session
+        const { data: session } = await supabase
+            .from('questionnaire_sessions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('questionnaire_id', questionnaireId)
+            .eq('status', 'in_progress')
+            .maybeSingle();
+
+        if (!session) return;
+
+        // 2. Determine if it's onboarding
+        const { data: qData } = await supabase
+            .from('questionnaires')
+            .select('is_onboarding')
+            .eq('id', questionnaireId)
+            .single();
+
+        const isOnboarding = qData?.is_onboarding ?? false;
+
+        let finalScore: number | null = null;
+
+        // 3. Compute score if not onboarding (like WHO-5)
+        if (!isOnboarding) {
+            const { data: responses, error: rErr } = await supabase
+                .from('questionnaire_responses')
+                .select('option_id, question_options(score)')
+                .eq('session_id', session.id);
+
+            if (!rErr && responses) {
+                const totalScore = responses.reduce((acc, r) => {
+                    // Safe access to relation object array/single
+                    const qOpts = Array.isArray(r.question_options) ? r.question_options[0] : r.question_options;
+                    const s = (qOpts as any)?.score || 0;
+                    return acc + s;
+                }, 0);
+                finalScore = totalScore * 4;
+            }
+        }
+
+        // 4. Update session
+        const { error } = await supabase
+            .from('questionnaire_sessions')
+            .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                score: finalScore
+            })
+            .eq('id', session.id);
+
+        if (error) {
+            logger.error('ResponseService', `Error completing session: ${error.message}`);
+            throw new Error(`ResponseService.completeSession: ${error.message}`);
+        }
     }
 
     /**
@@ -105,13 +208,17 @@ export class ResponseService {
         const supabase = createBrowserClient();
 
         if (progress.responses.length > 0) {
+            const sessionId = await this.getOrCreateActiveSession(userId, progress.questionnaireId, supabase);
+
             const rows = progress.responses.map((r) => ({
                 user_id: userId,
+                questionnaire_id: progress.questionnaireId,
+                session_id: sessionId,
                 question_id: r.questionId,
                 option_id: r.optionId,
                 free_text_response: r.freeText,
             }));
-            const { error: respError } = await supabase.from('questionnaire_responses').upsert(rows, { onConflict: 'user_id,question_id' });
+            const { error: respError } = await supabase.from('questionnaire_responses').upsert(rows, { onConflict: 'session_id,question_id' });
             if (respError) throw new Error(`syncGuestToCloud (responses): ${respError.message}`);
         }
 
@@ -126,8 +233,7 @@ export class ResponseService {
     }
 
     /**
-     * Deduce la profundidad de progreso dinámica cruzando las respuestas del usuario
-     * con el grafo de preguntas del cuestionario.
+     * Deduce la profundidad de progreso cruzando las respuestas del usuario.
      * Ideal para Server Components que renderizan listas.
      */
     static async getUserProgress(
@@ -135,25 +241,36 @@ export class ResponseService {
         questionnaireId: string,
         questionsMap: Map<string, QuestionNode>,
         supabaseClient?: SupabaseClient<Database>
-    ): Promise<{ progress: GraphProgress | null; isCompleted: boolean; answeredCount: number; currentQuestionId: string | null }> {
+    ): Promise<{ progress: LinearProgress | null; isCompleted: boolean; answeredCount: number; currentQuestionId: string | null }> {
         const supabase = supabaseClient ?? createBrowserClient();
+
+        const { data: session } = await supabase
+            .from('questionnaire_sessions')
+            .select('id, status')
+            .eq('user_id', userId)
+            .eq('questionnaire_id', questionnaireId)
+            .eq('status', 'in_progress')
+            .maybeSingle();
+
+        if (!session) {
+            return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };
+        }
 
         const { data: responses, error } = await supabase
             .from('questionnaire_responses')
             .select('question_id, created_at, option_id, questionnaire_questions!inner(questionnaire_id, order_index)')
-            .eq('user_id', userId)
-            .eq('questionnaire_questions.questionnaire_id', questionnaireId);
+            .eq('session_id', session.id);
 
         if (error) {
             logger.error('ResponseService', 'Error fetching user progress', error);
             return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };
         }
 
-        const firstQ = QuestionnaireService.findFirstQuestion(questionsMap);
-        if (!firstQ) return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };
+        const sortedQuestions = Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+        if (sortedQuestions.length === 0) return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };
 
         const answeredCount = responses?.length || 0;
-        let currentQuestionId = firstQ.id;
+        let currentQuestionId = sortedQuestions[0].id;
         let isCompleted = false;
 
         if (answeredCount > 0 && responses) {
@@ -165,29 +282,16 @@ export class ResponseService {
             });
 
             const lastAnswer = sortedResponses[0];
-            const lastQNode = questionsMap.get(lastAnswer.question_id);
+            const furthestIndex = sortedQuestions.findIndex(q => q.id === lastAnswer.question_id);
 
-            if (lastQNode) {
-                if (lastAnswer.option_id) {
-                    const opt = lastQNode.options.find(o => o.id === lastAnswer.option_id);
-                    if (opt && opt.nextQuestionId) {
-                        currentQuestionId = opt.nextQuestionId;
-                    } else {
-                        currentQuestionId = lastAnswer.question_id;
-                        isCompleted = true; // No nextQuestionId means terminal
-                    }
-                } else {
-                    const phantom = lastQNode.options.find(o => o.isPhantom);
-                    if (phantom && phantom.nextQuestionId) {
-                        currentQuestionId = phantom.nextQuestionId;
-                    } else {
-                        isCompleted = true;
-                    }
-                }
+            if (furthestIndex >= 0 && furthestIndex < sortedQuestions.length - 1) {
+                currentQuestionId = sortedQuestions[furthestIndex + 1].id;
+            } else {
+                currentQuestionId = lastAnswer.question_id;
             }
         }
 
-        const progress = isCompleted ? null : getGraphProgress(questionsMap, firstQ.id, currentQuestionId, answeredCount);
+        const progress = isCompleted ? null : getLinearProgress(sortedQuestions, currentQuestionId);
         return { progress, isCompleted, answeredCount, currentQuestionId };
     }
 }

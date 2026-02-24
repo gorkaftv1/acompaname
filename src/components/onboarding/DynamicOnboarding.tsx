@@ -5,14 +5,15 @@
  *
  * Orquesta el flujo completo:
  *  1. Carga el cuestionario 'Onboarding'
- *  2. Navega pregunta a pregunta siguiendo el grafo de next_question_id
+ *  2. Navega pregunta a pregunta siguiendo el orden lineal y evaluando showIf
  *  3. Guarda cada respuesta (upsert con user_id o localStorage para guest)
  *  4. Captura nombre (Q1) y caregivingName (Q2). Los escribe en profiles.
  *  5. Interpola {{X}} e {{Y}} en preguntas y opciones con nombres reales.
- *  6. Al llegar a next_question_id = null → redirige al dashboard
+ *  6. Al llegar al final de las preguntas → redirige al dashboard
+ *
  *
  * Ya no usa sesiones: el progreso se gestiona directamente con user_id.
- * Progreso calculado dinámicamente con análisis de grafo (graph-progress.ts).
+ * Progreso calculado dinámicamente de forma lineal considerando show_if.
  */
 
 import { useEffect, useReducer, useCallback, useMemo } from 'react';
@@ -28,7 +29,9 @@ import type {
     QuestionnaireEngineState,
 } from '@/lib/services/questionnaire-engine.types';
 import { useQuestionnaireContext } from '@/lib/hooks/useQuestionnaireContext';
-import { getGraphProgress, type GraphProgress } from '@/lib/utils/graph-progress';
+import { getLinearProgress, type LinearProgress } from '@/lib/utils/graph-progress';
+import { evaluateShowIf } from '@/lib/utils/show-if';
+import type { AnswerEntry } from '@/lib/services/questionnaire-engine.types';
 import { logger } from '@/lib/utils/logger';
 import { useAuthStore } from '@/lib/store/auth.store';
 
@@ -41,7 +44,7 @@ import QuestionnaireLoadingScreen from './QuestionnaireLoadingScreen';
 // Constantes
 // ---------------------------------------------------------------------------
 
-const QUESTIONNAIRE_TITLE = 'Onboarding';
+const QUESTIONNAIRE_TITLE = 'Onboarding — AcompañaMe';
 const DASHBOARD_ROUTE = '/dashboard';
 
 // ---------------------------------------------------------------------------
@@ -53,7 +56,7 @@ type Action =
     | { type: 'INIT_SUCCESS'; question: QuestionNode; answeredCount?: number }
     | { type: 'INIT_ERROR'; message: string }
     | { type: 'SAVING_START' }
-    | { type: 'ADVANCE'; nextQuestion: QuestionNode | null }
+    | { type: 'ADVANCE'; nextQuestion: QuestionNode | null; answer: AnswerEntry }
     | { type: 'SAVE_ERROR'; message: string }
     | { type: 'COMPLETE' }
     | { type: 'SET_NAME'; key: 'userName' | 'caregivingName'; value: string };
@@ -78,17 +81,22 @@ function reducer(state: QuestionnaireEngineState, action: Action): Questionnaire
         case 'SAVING_START':
             return { ...state, status: 'saving' };
 
-        case 'ADVANCE':
+        case 'ADVANCE': {
+            const newAnswersMap = new Map(state.answersMap);
+            newAnswersMap.set(action.answer.questionId, action.answer);
+
             if (action.nextQuestion === null) {
-                return { ...state, status: 'completed' };
+                return { ...state, status: 'completed', answersMap: newAnswersMap };
             }
             return {
                 ...state,
                 status: 'answering',
                 currentQuestion: action.nextQuestion,
                 answeredCount: state.answeredCount + 1,
+                answersMap: newAnswersMap,
                 errorMessage: null,
             };
+        }
 
         case 'SAVE_ERROR':
             return { ...state, status: 'answering', errorMessage: action.message };
@@ -110,6 +118,7 @@ const initialState: QuestionnaireEngineState = {
     answersMap: new Map(),
     errorMessage: null,
     answeredCount: 0,
+    currentSessionId: null,
     userName: null,
     caregivingName: null,
 };
@@ -161,6 +170,9 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                 if (isCompleted) {
                     dispatch({ type: 'COMPLETE' });
                 } else if (currentQuestionId && questionsMap.has(currentQuestionId)) {
+                    // Populate answersMap from response service if possible, 
+                    // or just rely on evaluateShowIf gracefully skipping unresolved backwards?
+                    // Because we already calculated currentQuestionId accurately server-side!
                     dispatch({
                         type: 'INIT_SUCCESS',
                         question: questionsMap.get(currentQuestionId)!,
@@ -185,30 +197,24 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
     // ── Navegación al completar ──────────────────────────────────────────
 
     useEffect(() => {
-        if (state.status !== 'completed') return;
-        if (!userId) {
-            router.push('/register');
-        } else {
-            router.push(DASHBOARD_ROUTE);
-        }
+        // Redirection has been explicitly removed by user request (Step 3)
+        // We now show a confirmation screen instead.
     }, [state.status, router, userId]);
 
-    // ── Progreso dinámico (grafo) ────────────────────────────────────────
+    // ── Progreso dinámico ────────────────────────────────────────────────
 
-    const graphProgress: GraphProgress | null = useMemo(() => {
-        if (!firstQuestion || !state.currentQuestion) return null;
-        return getGraphProgress(
-            questionsMap,
-            firstQuestion.id,
+    const linearProgress: LinearProgress | null = useMemo(() => {
+        if (!state.currentQuestion) return null;
+        return getLinearProgress(
+            Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex),
             state.currentQuestion.id,
-            state.answeredCount,
         );
-    }, [questionsMap, firstQuestion, state.currentQuestion, state.answeredCount]);
+    }, [questionsMap, state.currentQuestion]);
 
     // ── Handlers ─────────────────────────────────────────────────────────
 
     const handleNavigate = useCallback(
-        async (option: OptionNode, freeText: string | null) => {
+        async (option: OptionNode | null, freeText: string | null) => {
             if (!state.currentQuestion) return;
 
             dispatch({ type: 'SAVING_START' });
@@ -218,12 +224,12 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                     userId,
                     questionnaireId,
                     state.currentQuestion.id,
-                    option.id,
+                    option ? option.id : null,
                     freeText,
                 );
 
                 // ── Captura de nombres (Q1 y Q2) ───────────────────────
-                if (state.currentQuestion.isFirstQuestion && freeText) {
+                if (state.answeredCount === 0 && freeText) {
                     dispatch({ type: 'SET_NAME', key: 'userName', value: freeText });
                     if (!userId) {
                         ResponseService.saveGuestName(questionnaireId, 'userName', freeText);
@@ -243,11 +249,33 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                     }
                 }
 
-                const nextQuestion = option.nextQuestionId
-                    ? (questionsMap.get(option.nextQuestionId) ?? null)
-                    : null;
+                const answerEntry: AnswerEntry = {
+                    questionId: state.currentQuestion.id,
+                    selectedOptionId: option ? option.id : null,
+                    freeTextResponse: freeText,
+                };
 
-                dispatch({ type: 'ADVANCE', nextQuestion });
+                // Calcular siguiente pregunta lineal
+                const sortedQuestions = Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+                const currentIndex = sortedQuestions.findIndex(q => q.id === state.currentQuestion!.id);
+
+                let nextQuestion: QuestionNode | null = null;
+                const tempAnswersMap = new Map(state.answersMap);
+                tempAnswersMap.set(answerEntry.questionId, answerEntry);
+
+                for (let i = currentIndex + 1; i < sortedQuestions.length; i++) {
+                    const candidate = sortedQuestions[i];
+                    if (evaluateShowIf(candidate.showIf, tempAnswersMap)) {
+                        nextQuestion = candidate;
+                        break;
+                    }
+                }
+
+                if (!nextQuestion) {
+                    await ResponseService.completeSession(userId, questionnaireId);
+                }
+
+                dispatch({ type: 'ADVANCE', nextQuestion, answer: answerEntry });
             } catch (err) {
                 const msg = err instanceof Error ? err.message : 'Error al guardar la respuesta.';
                 dispatch({ type: 'SAVE_ERROR', message: msg });
@@ -264,11 +292,7 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
     const handleTextSubmit = useCallback(
         (freeText: string) => {
             if (!state.currentQuestion) return;
-            const phantom = state.currentQuestion.options.find((o) => o.isPhantom);
-            if (!phantom) {
-                logger.error('DynamicOnboarding', 'No hay opción fantasma para la pregunta de texto.');
-                return;
-            }
+            const phantom = state.currentQuestion.options.find((o) => o.isPhantom) ?? null;
             handleNavigate(phantom, freeText);
         },
         [state.currentQuestion, handleNavigate],
@@ -284,6 +308,21 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
         localCaregivingName: caregivingName,
     });
 
+    const isLastQuestion = useMemo(() => {
+        if (!currentQuestion) return false;
+
+        const sortedQuestions = Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+        const currentIndex = sortedQuestions.findIndex(q => q.id === currentQuestion.id);
+
+        for (let i = currentIndex + 1; i < sortedQuestions.length; i++) {
+            const candidate = sortedQuestions[i];
+            if (evaluateShowIf(candidate.showIf, state.answersMap)) {
+                return false;
+            }
+        }
+        return true;
+    }, [currentQuestion, state.answersMap, questionsMap]);
+
     if (status === 'loading') return <QuestionnaireLoadingScreen />;
 
     if (status === 'completed') {
@@ -293,14 +332,26 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex flex-col items-center justify-center py-20 gap-6 text-center"
             >
-                <EmotionalCompanion emotion="calm" size={140} />
-                <div className="space-y-2">
-                    <p className="text-deep-calm-blue font-bold text-xl">¡Gracias por compartir!</p>
-                    <p className="text-deep-calm-blue/70 text-sm">
-                        Preparando tu experiencia personalizada…
+                <div className="bg-[#E8F3ED] rounded-full p-4 mb-2">
+                    <EmotionalCompanion emotion="calm" size={100} />
+                </div>
+                <div className="space-y-3 mb-4">
+                    <h2 className="text-2xl font-bold text-[#1A1A1A]">¡Gracias por compartir!</h2>
+                    <p className="text-[#6B7280] text-[15px] max-w-sm mx-auto leading-relaxed">
+                        Hemos guardado tus respuestas correctamente.
                     </p>
                 </div>
-                <span className="w-7 h-7 border-4 border-[#4A9B9B]/30 border-t-[#4A9B9B] rounded-full animate-spin" />
+
+                <button
+                    onClick={() => router.push(userId ? DASHBOARD_ROUTE : '/register')}
+                    className="
+                        inline-flex items-center justify-center gap-2 rounded-2xl 
+                        bg-[#4A9B9B] px-8 py-4 text-[15px] font-semibold text-white 
+                        shadow-md transition-all duration-200 hover:bg-[#3a8888] hover:shadow-lg
+                    "
+                >
+                    {userId ? 'Volver al inicio' : 'Registrarme y guardar resultados'}
+                </button>
             </motion.div>
         );
     }
@@ -325,9 +376,9 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
 
     return (
         <div className="space-y-6">
-            {/* Barra de progreso dinámica (basada en grafo) */}
-            {graphProgress && (
-                <DynamicProgressBar progress={graphProgress} />
+            {/* Barra de progreso dinámica */}
+            {linearProgress && (
+                <DynamicProgressBar progress={linearProgress} />
             )}
 
             {/* Error no fatal */}
@@ -365,6 +416,7 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                         questionText={resolvePlaceholders(currentQuestion.questionText)}
                         onSubmit={handleTextSubmit}
                         disabled={isSaving}
+                        isLastQuestion={isLastQuestion}
                     />
                 )}
             </AnimatePresence>
@@ -382,7 +434,7 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                         className="inline-flex items-center gap-2 rounded-xl border-2 border-[#4A9B9B] px-5 py-2.5 text-sm font-medium text-[#4A9B9B] transition-colors hover:bg-[#4A9B9B] hover:text-white pointer-events-auto"
                         type="button"
                     >
-                        Guardar progreso y registrarse
+                        {isLastQuestion ? 'Registrarme y terminar' : 'Guardar progreso y registrarme'}
                     </button>
                 </motion.div>
             )}
@@ -391,18 +443,17 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
 }
 
 // ---------------------------------------------------------------------------
-// Barra de progreso dinámica (basada en análisis de grafo)
+// Barra de progreso dinámica (lineal)
 // ---------------------------------------------------------------------------
 
-function DynamicProgressBar({ progress }: { progress: GraphProgress }) {
-    const { currentStep, maxSteps, minRemaining } = progress;
-    const pct = Math.min(Math.round((currentStep / maxSteps) * 100), 95);
+function DynamicProgressBar({ progress }: { progress: LinearProgress }) {
+    const { currentStep, totalSteps } = progress;
+    const pct = Math.min(Math.round((currentStep / totalSteps) * 100), 100);
 
     return (
         <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-deep-calm-blue/50">
-                <span>Pregunta {currentStep} de ~{maxSteps}</span>
-                <span>Faltan al menos {minRemaining}</span>
+                <span>Pregunta {currentStep} de {totalSteps}</span>
             </div>
             <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
