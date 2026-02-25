@@ -69,6 +69,7 @@ export class ResponseService {
     ): Promise<string> {
         const supabase = supabaseClient ?? createBrowserClient();
 
+        console.log('[ResponseService][getOrCreateActiveSession] Buscando sesión', { userId, questionnaireId });
         // Buscar sesión activa
         const { data: session } = await supabase
             .from('questionnaire_sessions')
@@ -78,8 +79,12 @@ export class ResponseService {
             .eq('status', 'in_progress')
             .maybeSingle();
 
-        if (session) return session.id;
+        if (session) {
+            console.log('[ResponseService][getOrCreateActiveSession] Sesión encontrada', { sessionId: session.id });
+            return session.id;
+        }
 
+        console.log('[ResponseService][getOrCreateActiveSession] Creando nueva sesión', { userId, questionnaireId });
         // Crear nueva sesión
         const { data: newSession, error } = await supabase
             .from('questionnaire_sessions')
@@ -87,7 +92,11 @@ export class ResponseService {
             .select('id')
             .single();
 
-        if (error) throw new Error(`ResponseService.getOrCreateActiveSession: ${error.message}`);
+        if (error) {
+            console.error('[ResponseService][getOrCreateActiveSession] Error creando sesión', { error, userId, questionnaireId });
+            throw new Error(`ResponseService.getOrCreateActiveSession: ${error.message}`);
+        }
+        console.log('[ResponseService][getOrCreateActiveSession] Sesión creada', { sessionId: newSession.id });
         return newSession.id;
     }
 
@@ -117,6 +126,7 @@ export class ResponseService {
         const supabase = createBrowserClient();
         const sessionId = await this.getOrCreateActiveSession(userId, questionnaireId, supabase);
 
+        console.log('[ResponseService][saveResponse] Guardando respuesta', { sessionId, questionId, optionId, freeText });
         const { error } = await supabase.from('questionnaire_responses').upsert({
             user_id: userId,
             questionnaire_id: questionnaireId,
@@ -126,7 +136,11 @@ export class ResponseService {
             free_text_response: freeText,
         }, { onConflict: 'session_id,question_id' });
 
-        if (error) throw new Error(`ResponseService.saveResponse: ${error.message}`);
+        if (error) {
+            console.error('[ResponseService][saveResponse] Error guardando respuesta', { error, sessionId, questionId });
+            throw new Error(`ResponseService.saveResponse: ${error.message}`);
+        }
+        console.log('[ResponseService][saveResponse] Respuesta guardada exitosamente', { sessionId, questionId });
     }
 
     /**
@@ -142,6 +156,7 @@ export class ResponseService {
 
         const supabase = supabaseClient ?? createBrowserClient();
 
+        console.log('[ResponseService][completeSession] Buscando sesión activa para completar', { userId, questionnaireId });
         // 1. Find active session
         const { data: session } = await supabase
             .from('questionnaire_sessions')
@@ -151,8 +166,12 @@ export class ResponseService {
             .eq('status', 'in_progress')
             .maybeSingle();
 
-        if (!session) return;
+        if (!session) {
+            console.log('[ResponseService][completeSession] No se encontró sesión activa', { userId, questionnaireId });
+            return;
+        }
 
+        console.log('[ResponseService][completeSession] Verificando si es onboarding', { questionnaireId });
         // 2. Determine if it's onboarding
         const { data: qData } = await supabase
             .from('questionnaires')
@@ -166,6 +185,7 @@ export class ResponseService {
 
         // 3. Compute score if not onboarding (like WHO-5)
         if (!isOnboarding) {
+            console.log('[ResponseService][completeSession] Calculando score para cuestionario', { sessionId: session.id });
             const { data: responses, error: rErr } = await supabase
                 .from('questionnaire_responses')
                 .select('option_id, question_options(score)')
@@ -182,6 +202,7 @@ export class ResponseService {
             }
         }
 
+        console.log('[ResponseService][completeSession] Actualizando sesión', { sessionId: session.id, status: 'completed', finalScore });
         // 4. Update session
         const { error } = await supabase
             .from('questionnaire_sessions')
@@ -193,9 +214,11 @@ export class ResponseService {
             .eq('id', session.id);
 
         if (error) {
+            console.error('[ResponseService][completeSession] Error completando sesión', { error, sessionId: session.id });
             logger.error('ResponseService', `Error completing session: ${error.message}`);
             throw new Error(`ResponseService.completeSession: ${error.message}`);
         }
+        console.log('[ResponseService][completeSession] Sesión completada con éxito', { sessionId: session.id });
     }
 
     /**
@@ -218,8 +241,13 @@ export class ResponseService {
                 option_id: r.optionId,
                 free_text_response: r.freeText,
             }));
+            console.log('[ResponseService][syncGuestToCloud] Sincronizando respuestas', { sessionId, count: rows.length });
             const { error: respError } = await supabase.from('questionnaire_responses').upsert(rows, { onConflict: 'session_id,question_id' });
-            if (respError) throw new Error(`syncGuestToCloud (responses): ${respError.message}`);
+            if (respError) {
+                console.error('[ResponseService][syncGuestToCloud] Error sincronizando respuestas', { error: respError, sessionId });
+                throw new Error(`syncGuestToCloud (responses): ${respError.message}`);
+            }
+            console.log('[ResponseService][syncGuestToCloud] Sincronización exitosa', { sessionId });
         }
 
         if (progress.userName || progress.caregivingName) {
@@ -244,6 +272,7 @@ export class ResponseService {
     ): Promise<{ progress: LinearProgress | null; isCompleted: boolean; answeredCount: number; currentQuestionId: string | null }> {
         const supabase = supabaseClient ?? createBrowserClient();
 
+        console.log('[ResponseService][getUserProgress] Buscando sesión en progreso', { userId, questionnaireId });
         const { data: session } = await supabase
             .from('questionnaire_sessions')
             .select('id, status')
@@ -253,8 +282,11 @@ export class ResponseService {
             .maybeSingle();
 
         if (!session) {
+            console.log('[ResponseService][getUserProgress] No hay sesión en progreso', { userId, questionnaireId });
             return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };
         }
+
+        console.log('[ResponseService][getUserProgress] Extrayendo respuestas', { sessionId: session.id });
 
         const { data: responses, error } = await supabase
             .from('questionnaire_responses')
@@ -262,9 +294,11 @@ export class ResponseService {
             .eq('session_id', session.id);
 
         if (error) {
+            console.error('[ResponseService][getUserProgress] Error obteniendo progreso del usuario', { error, sessionId: session.id });
             logger.error('ResponseService', 'Error fetching user progress', error);
             return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };
         }
+        console.log('[ResponseService][getUserProgress] Progreso cargado', { responsesCount: responses?.length ?? 0 });
 
         const sortedQuestions = Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
         if (sortedQuestions.length === 0) return { progress: null, isCompleted: false, answeredCount: 0, currentQuestionId: null };

@@ -6,11 +6,10 @@ import PageLayout from '@/components/PageLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import WHO5Form from '@/components/who5/WHO5Form';
 import WHO5Results from '@/components/who5/WHO5Results';
-import { calculateWHO5Score, type WHO5Result, WHO5_DB_QUESTIONNAIRE_ID } from '@/lib/who5/who5.config';
-import { createBrowserClient } from '@/lib/supabase/client';
+import { WHO5Result, WHO5_DB_QUESTIONNAIRE_ID } from '@/lib/who5/who5.config';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { ResponseService } from '@/services/response.service';
 import { QuestionnaireService } from '@/services/questionnaire.service';
+import { WHO5Service } from '@/services/who5.service';
 import QuestionnaireLoadingScreen from '@/components/onboarding/QuestionnaireLoadingScreen';
 import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engine.types';
 
@@ -61,71 +60,25 @@ export default function WHO5Page() {
   }, []);
 
   const handleFormComplete = async (answers: Record<string, number>) => {
+    if (!user) {
+      setError('Debes iniciar sesión para guardar el cuestionario.');
+      return;
+    }
+
     setIsSaving(true);
+    setError(null);
+
     try {
-      const supabase = createBrowserClient();
+      const computedResult = await WHO5Service.saveAnswers(user.id, answers, questions, options);
 
-      // 1. Get or Create Session
-      let sessionId = '';
-      if (user) {
-        sessionId = await ResponseService.getOrCreateActiveSession(user.id, WHO5_DB_QUESTIONNAIRE_ID);
-
-        // 2. Build rows for UPSERT
-        const rows = questions.map((q) => {
-          const optScore = answers[q.id]; // This is the generic score (0-5)
-          const matchedOpt = options.find((o) => o.score === optScore);
-          return {
-            user_id: user.id,
-            questionnaire_id: WHO5_DB_QUESTIONNAIRE_ID,
-            session_id: sessionId,
-            question_id: q.id,
-            option_id: matchedOpt?.id || '',
-          };
-        }).filter(row => row.option_id !== '');
-
-        console.log('[WHO5] Respuestas a guardar:', rows);
-        console.log('[WHO5] session_id:', sessionId);
-        console.log('[WHO5] Opciones con score:',
-          rows.map(a => ({ question_id: a.question_id, option_id: a.option_id, score: options.find(o => o.id === a.option_id)?.score }))
-        );
-
-        // 3. UPSERT responses
-        const upsertResult = await supabase.from('questionnaire_responses').upsert(rows, { onConflict: 'session_id,question_id' });
-        console.log('[WHO5] Resultado UPSERT respuesta:', { data: upsertResult.data, error: upsertResult.error });
-
-        // Solo si todos los UPSERTs tienen error = null -> calcular el score y hacer UPDATE
-        if (!upsertResult.error) {
-          // Calculate final WHO-5 score (raw sum * 4)
-          const rawScore = Object.values(answers).reduce((sum, v) => sum + v, 0);
-          const score = rawScore * 4;
-
-          console.log('[WHO5] Score calculado:', score);
-          console.log('[WHO5] Actualizando sesión:', sessionId);
-
-          // Update session status and score
-          const updateResult = await supabase
-            .from('questionnaire_sessions')
-            .update({ status: 'completed', completed_at: new Date().toISOString(), score })
-            .eq('id', sessionId);
-
-          console.log('[WHO5] Resultado UPDATE sesión:', { data: updateResult.data, error: updateResult.error });
-
-          if (updateResult.error) {
-            throw new Error(updateResult.error.message);
-          }
-        } else {
-          throw new Error(upsertResult.error.message);
-        }
-      } // <- Close if (user)
-
-      // 5. Update UI
-      const computed = calculateWHO5Score(answers);
-      setResult(computed);
+      // Update UI
+      setResult(computedResult);
       setPhase('result');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       console.error('Error saving WHO-5 answers:', err);
-      alert('Hubo un error al guardar tus respuestas. Por favor, inténtalo de nuevo.');
+      setError('Hubo un error al guardar tus respuestas. Por favor, inténtalo de nuevo.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSaving(false);
     }

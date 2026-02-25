@@ -1,6 +1,5 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import DemoBanner from '@/components/DemoBanner';
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -22,11 +21,11 @@ interface PageLayoutProps {
  * </PageLayout>
  * ```
  */
-export default function PageLayout({ 
-  children, 
+export default function PageLayout({
+  children,
   className = '',
   showHeader = true,
-  showFooter = true 
+  showFooter = true
 }: PageLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">

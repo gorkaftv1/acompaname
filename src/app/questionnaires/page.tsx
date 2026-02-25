@@ -20,7 +20,7 @@ export default async function QuestionnairesPage() {
     // 2. Fetch active questionnaires
     const { data: questionnaires, error: qErr } = await supabase
         .from('questionnaires')
-        .select('id, title, description, status')
+        .select('id, title, description, status, is_onboarding')
         .eq('status', 'published');
 
     if (qErr) {

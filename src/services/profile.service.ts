@@ -132,6 +132,8 @@ export class ProfileService {
       throw new Error('ProfilesService.getMyProfile: No hay sesión activa.');
     }
 
+    console.log('[ProfileService][getMyProfile] Cargando perfil del usuario actual', { userId: user.id });
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -139,8 +141,11 @@ export class ProfileService {
       .single<ProfileRow>();
 
     if (error) {
+      console.error('[ProfileService][getMyProfile] Error obteniendo perfil', { error, userId: user.id });
       throw new Error(`ProfilesService.getMyProfile: ${error.message}`);
     }
+
+    console.log('[ProfileService][getMyProfile] Perfil cargado', { userId: user.id });
 
     return mapRowToProfile(data);
   }
@@ -155,6 +160,7 @@ export class ProfileService {
   static async getProfileById(userId: string): Promise<Profile> {
     const supabase = createBrowserClient();
 
+    console.log('[ProfileService][getProfileById] Cargando perfil', { userId });
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -162,8 +168,10 @@ export class ProfileService {
       .single<ProfileRow>();
 
     if (error) {
+      console.error('[ProfileService][getProfileById] Error obteniendo perfil', { error, userId });
       throw new Error(`ProfilesService.getProfileById: ${error.message}`);
     }
+    console.log('[ProfileService][getProfileById] Perfil cargado', { userId });
 
     return mapRowToProfile(data);
   }
@@ -200,6 +208,7 @@ export class ProfileService {
     if (clean.notificationPreferences !== undefined)
       payload.notification_preferences = clean.notificationPreferences as any;
 
+    console.log('[ProfileService][updateProfile] Actualizando perfil', { userId, payload });
     const { data, error } = await supabase
       .from('profiles')
       .update(payload)
@@ -208,8 +217,10 @@ export class ProfileService {
       .single<ProfileRow>();
 
     if (error) {
+      console.error('[ProfileService][updateProfile] Error actualizando perfil', { error, userId });
       throw new Error(`ProfilesService.updateProfile: ${error.message}`);
     }
+    console.log('[ProfileService][updateProfile] Perfil actualizado exitosamente', { userId });
 
     return mapRowToProfile(data);
   }
@@ -252,6 +263,7 @@ export class ProfileService {
       }),
     };
 
+    console.log('[ProfileService][upsertProfile] Upsert de perfil', { userId, payload });
     const { data, error } = await supabase
       .from('profiles')
       .upsert(payload)
@@ -259,8 +271,10 @@ export class ProfileService {
       .single<ProfileRow>();
 
     if (error) {
+      console.error('[ProfileService][upsertProfile] Error en upsert de perfil', { error, userId });
       throw new Error(`ProfilesService.upsertProfile: ${error.message}`);
     }
+    console.log('[ProfileService][upsertProfile] Perfil guardado (upsert) exitosamente', { userId });
 
     return mapRowToProfile(data);
   }

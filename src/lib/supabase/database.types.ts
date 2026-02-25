@@ -1,17 +1,8 @@
 /**
  * TypeScript Types for Supabase Database
  *
- * Types based on actual database schema (00_initial_schema.sql).
+ * Types based on actual database schema (01_initial_schema.sql + 07_views.sql).
  * These types ensure type safety when querying Supabase.
- *
- * Tables:
- * - profiles (user profile with onboarding data)
- * - daily_emotions (unified mood + journal entries)
- * - chat_messages (chat history with AI)
- * - questionnaires (configurable questionnaires)
- * - questionnaire_questions (individual questions)
- * - question_options (answer options with conditional navigation)
- * - questionnaire_responses (individual answers — user-owned, no sessions)
  */
 
 export type Json =
@@ -126,7 +117,7 @@ export interface Database {
                 Row: {
                     id: string
                     user_id: string
-                    role: 'user' | 'assistant'
+                    role: 'user' | 'assistant' | 'system'
                     content: string
                     emotion: 'calm' | 'okay' | 'challenging' | 'mixed' | null
                     created_at: string
@@ -134,7 +125,7 @@ export interface Database {
                 Insert: {
                     id?: string
                     user_id: string
-                    role: 'user' | 'assistant'
+                    role: 'user' | 'assistant' | 'system'
                     content: string
                     emotion?: 'calm' | 'okay' | 'challenging' | 'mixed' | null
                     created_at?: string
@@ -142,7 +133,7 @@ export interface Database {
                 Update: {
                     id?: string
                     user_id?: string
-                    role?: 'user' | 'assistant'
+                    role?: 'user' | 'assistant' | 'system'
                     content?: string
                     emotion?: 'calm' | 'okay' | 'challenging' | 'mixed' | null
                     created_at?: string
@@ -377,6 +368,7 @@ export interface Database {
                     id: string
                     title: string
                     description: string | null
+                    is_onboarding: boolean
                     status: 'draft' | 'published' | 'archived'
                     created_at: string
                     updated_at: string
@@ -409,6 +401,29 @@ export interface Database {
                 }
                 Relationships: []
             }
+            user_responses_detail: {
+                Row: {
+                    user_id: string
+                    user_name: string
+                    questionnaire_id: string
+                    questionnaire_title: string
+                    is_onboarding: boolean
+                    session_id: string
+                    session_status: 'in_progress' | 'completed' | 'abandoned'
+                    session_score: number | null
+                    started_at: string
+                    completed_at: string | null
+                    question_id: string
+                    question_title: string
+                    question_type: 'single_choice' | 'multiple_choice' | 'text'
+                    question_order: number
+                    option_text: string | null
+                    option_score: number | null
+                    free_text_response: string | null
+                    answered_at: string
+                }
+                Relationships: []
+            }
         }
         Functions: {
             is_admin: {
@@ -416,7 +431,11 @@ export interface Database {
                 Returns: boolean
             }
             soft_delete_question: {
-                Args: { q_id: string }
+                Args: { p_question_id: string }
+                Returns: undefined
+            }
+            publish_questionnaire: {
+                Args: { p_questionnaire_id: string }
                 Returns: undefined
             }
         }

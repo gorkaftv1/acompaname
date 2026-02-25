@@ -38,6 +38,7 @@ export class QuestionnaireService {
     const cleanTitle = sanitizeString(title, 'questionnaire.title');
     const supabase = supabaseClient ?? createBrowserClient();
 
+    console.log('[QuestionnaireService][getByTitle] Cargando cuestionario', { title: cleanTitle });
     const { data, error } = await supabase
       .from('questionnaires')
       .select('id, title, description, status')
@@ -45,7 +46,12 @@ export class QuestionnaireService {
       .eq('status', 'published')
       .maybeSingle();
 
-    if (error) throw new Error(`QuestionnaireService.getByTitle: ${error.message}`);
+    if (error) {
+      console.error('[QuestionnaireService][getByTitle] Error cargando cuestionario', { error, title: cleanTitle });
+      throw new Error(`QuestionnaireService.getByTitle: ${error.message}`);
+    }
+    console.log('[QuestionnaireService][getByTitle] Cuestionario cargado', { data });
+
     if (!data) throw new Error(`No se encontró un cuestionario publicado con el título "${cleanTitle}".`);
 
     return data;
@@ -60,11 +66,22 @@ export class QuestionnaireService {
   ): Promise<(Pick<QuestionnaireRow, 'id' | 'title' | 'description' | 'status'> & { questionsMap: Map<string, QuestionNode> }) | null> {
     const supabase = supabaseClient ?? createBrowserClient();
 
+    console.log('[QuestionnaireService][getById] Cargando cuestionario', { id });
     const { data: qData, error: qErr } = await supabase
       .from('questionnaires')
       .select('id, title, description, status')
       .eq('id', id)
       .maybeSingle();
+
+    if (qErr) {
+      console.error('[QuestionnaireService][getById] Error cargando cuestionario', { error: qErr, id });
+      return null;
+    }
+    if (!qData) {
+      console.log('[QuestionnaireService][getById] Cuestionario no encontrado', { id });
+      return null;
+    }
+    console.log('[QuestionnaireService][getById] Cuestionario básico cargado', { qData });
 
     if (qErr || !qData) return null;
 
@@ -88,6 +105,7 @@ export class QuestionnaireService {
   ): Promise<Map<string, QuestionNode>> {
     const supabase = supabaseClient ?? createBrowserClient();
 
+    console.log('[QuestionnaireService][getQuestionsMap] Cargando preguntas', { questionnaireId });
     const { data: questions, error: qErr } = await supabase
       .from('questionnaire_questions')
       .select('id, questionnaire_id, title, type, order_index, show_if')
@@ -96,18 +114,27 @@ export class QuestionnaireService {
       .order('order_index')
       .returns<QuestionSelect[]>();
 
-    if (qErr) throw new Error(`QuestionnaireService.getQuestionsMap (questions): ${qErr.message}`);
+    if (qErr) {
+      console.error('[QuestionnaireService][getQuestionsMap] Error cargando preguntas', { error: qErr, questionnaireId });
+      throw new Error(`QuestionnaireService.getQuestionsMap (questions): ${qErr.message}`);
+    }
+    console.log('[QuestionnaireService][getQuestionsMap] Preguntas cargadas', { questionsCount: questions?.length ?? 0 });
     if (!questions || questions.length === 0) return new Map();
 
     const questionIds = questions.map(q => q.id);
 
+    console.log('[QuestionnaireService][getQuestionsMap] Cargando opciones', { questionIds });
     const { data: options, error: oErr } = await supabase
       .from('question_options')
       .select('id, question_id, text, score')
       .in('question_id', questionIds)
       .returns<OptionSelect[]>();
 
-    if (oErr) throw new Error(`QuestionnaireService.getQuestionsMap (options): ${oErr.message}`);
+    if (oErr) {
+      console.error('[QuestionnaireService][getQuestionsMap] Error cargando opciones', { error: oErr, questionIds });
+      throw new Error(`QuestionnaireService.getQuestionsMap (options): ${oErr.message}`);
+    }
+    console.log('[QuestionnaireService][getQuestionsMap] Opciones cargadas', { optionsCount: options?.length ?? 0 });
 
     const textQuestionIds = new Set(questions.filter(q => q.type === 'text').map(q => q.id));
 

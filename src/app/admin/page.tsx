@@ -8,6 +8,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { useAuthStore } from '@/lib/store/auth.store';
 import PageLayout from '@/components/PageLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,6 @@ const ErrorBanner: React.FC<{ message: string; onRetry: () => void }> = ({
   </div>
 );
 
-// ─── Admin content (inner) ────────────────────────────────────────────────────
 
 function AdminContent() {
   const supabase = createBrowserClient();
@@ -116,6 +116,14 @@ function AdminContent() {
   const [pageState, setPageState] = useState<PageState>('loading');
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: 'default' | 'danger';
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
 
   // ── Admin guard + data fetch ──────────────────────────────────────────────
   const initialize = useCallback(async () => {
@@ -162,21 +170,25 @@ function AdminContent() {
   };
 
   const handleEditSurvey = (id: string) => {
-    window.location.href = `/admin/questionnaires/${id}/edit`;
+    window.location.href = `/admin/questionnaires/${id}`;
   };
 
-  const handleDeleteSurvey = async (id: string) => {
-    const confirmed = window.confirm(
-      '¿Seguro que quieres eliminar este cuestionario? Esta acción no se puede deshacer.'
-    );
-    if (!confirmed) return;
-
-    const { error } = await supabase.from('questionnaires').delete().eq('id', id);
-    if (error) {
-      alert(`No se pudo eliminar: ${error.message}`);
-      return;
-    }
-    setSurveys((prev) => prev.filter((s) => s.id !== id));
+  const handleDeleteSurvey = (id: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Eliminar cuestionario',
+      message: '¿Seguro que quieres eliminar este cuestionario? Esta acción no se puede deshacer.',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        const { error } = await supabase.from('questionnaires').delete().eq('id', id);
+        if (error) {
+          alert(`No se pudo eliminar: ${error.message}`);
+          return;
+        }
+        setSurveys((prev) => prev.filter((s) => s.id !== id));
+      },
+    });
   };
 
   // ── Render: unauthorized ──────────────────────────────────────────────────
@@ -268,6 +280,15 @@ function AdminContent() {
           </motion.div>
         </AnimatePresence>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
