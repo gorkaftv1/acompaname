@@ -15,45 +15,37 @@
 --                  order_index 1 = score 5 (Todo el tiempo)
 --                  order_index 6 = score 0 (En ningún momento)
 -- =============================================================================
-
 -- -----------------------------------------------------------------------------
 -- 1. Cuestionario
 -- -----------------------------------------------------------------------------
-
-INSERT INTO public.questionnaires (id, title, description, is_onboarding, status)
+INSERT INTO public.questionnaires (id, title, description, type, status)
 VALUES (
   'b0000000-0000-0000-0000-000000000002',
   'WHO-5 — Índice de Bienestar',
   'Un breve cuestionario validado internacionalmente para evaluar tu bienestar emocional durante las últimas dos semanas.',
-  false,
+  'who5',
   'draft'
 )
 ON CONFLICT (id) DO UPDATE
   SET title         = EXCLUDED.title,
       description   = EXCLUDED.description,
-      is_onboarding = EXCLUDED.is_onboarding,
+      type          = EXCLUDED.type,
       status        = 'draft';
-
 -- -----------------------------------------------------------------------------
 -- 2. Preguntas y opciones
 -- -----------------------------------------------------------------------------
-
 DO $$
 DECLARE
   q_id UUID := 'b0000000-0000-0000-0000-000000000002';
-
   Q1 UUID := 'e0000000-0000-0000-0000-000000000001';
   Q2 UUID := 'e0000000-0000-0000-0000-000000000002';
   Q3 UUID := 'e0000000-0000-0000-0000-000000000003';
   Q4 UUID := 'e0000000-0000-0000-0000-000000000004';
   Q5 UUID := 'e0000000-0000-0000-0000-000000000005';
-
 BEGIN
-
   -- -------------------------------------------------------------------------
   -- Preguntas
   -- -------------------------------------------------------------------------
-
   INSERT INTO public.questionnaire_questions
     (id, questionnaire_id, order_index, title, type, show_if)
   VALUES
@@ -67,13 +59,11 @@ BEGIN
         type        = EXCLUDED.type,
         order_index = EXCLUDED.order_index,
         show_if     = EXCLUDED.show_if;
-
   -- -------------------------------------------------------------------------
   -- Opciones — misma escala para las 5 preguntas
   -- order_index 1 → score 5 (Todo el tiempo)
   -- order_index 6 → score 0 (En ningún momento)
   -- -------------------------------------------------------------------------
-
   -- Q1
   INSERT INTO public.question_options (id, question_id, order_index, text, score) VALUES
     ('f0000000-0000-0000-0001-000000000001', Q1, 1, 'Todo el tiempo',             5),
@@ -85,7 +75,6 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
     SET text  = EXCLUDED.text,
         score = EXCLUDED.score;
-
   -- Q2
   INSERT INTO public.question_options (id, question_id, order_index, text, score) VALUES
     ('f0000000-0000-0000-0002-000000000001', Q2, 1, 'Todo el tiempo',             5),
@@ -97,7 +86,6 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
     SET text  = EXCLUDED.text,
         score = EXCLUDED.score;
-
   -- Q3
   INSERT INTO public.question_options (id, question_id, order_index, text, score) VALUES
     ('f0000000-0000-0000-0003-000000000001', Q3, 1, 'Todo el tiempo',             5),
@@ -109,7 +97,6 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
     SET text  = EXCLUDED.text,
         score = EXCLUDED.score;
-
   -- Q4
   INSERT INTO public.question_options (id, question_id, order_index, text, score) VALUES
     ('f0000000-0000-0000-0004-000000000001', Q4, 1, 'Todo el tiempo',             5),
@@ -121,7 +108,6 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
     SET text  = EXCLUDED.text,
         score = EXCLUDED.score;
-
   -- Q5
   INSERT INTO public.question_options (id, question_id, order_index, text, score) VALUES
     ('f0000000-0000-0000-0005-000000000001', Q5, 1, 'Todo el tiempo',             5),
@@ -133,13 +119,9 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
     SET text  = EXCLUDED.text,
         score = EXCLUDED.score;
-
   RAISE NOTICE '✅ WHO-5: 5 preguntas y 30 opciones insertadas.';
-
 END $$;
-
 -- -----------------------------------------------------------------------------
 -- 3. Publicar
 -- -----------------------------------------------------------------------------
-
 SELECT public.publish_questionnaire('b0000000-0000-0000-0000-000000000002');

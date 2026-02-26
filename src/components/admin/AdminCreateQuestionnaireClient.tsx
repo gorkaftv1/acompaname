@@ -15,7 +15,7 @@ export default function AdminCreateQuestionnaireClient({ userId }: { userId: str
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [isOnboarding, setIsOnboarding] = useState(false);
+    const [type, setType] = useState<'onboarding' | 'who5' | 'standard'>('standard');
 
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function AdminCreateQuestionnaireClient({ userId }: { userId: str
                     title: title.trim(),
                     description: description.trim() || null,
                     status: 'draft',
-                    is_onboarding: isOnboarding
+                    type: type
                 })
                 .select('id')
                 .single();
@@ -122,18 +122,21 @@ export default function AdminCreateQuestionnaireClient({ userId }: { userId: str
                         />
                     </div>
 
-                    {/* Is Onboarding flag */}
-                    <div className="flex items-center gap-3 bg-[#F9FAFB] p-4 rounded-xl border border-[#F3F4F6]">
-                        <input
-                            id="isOnboarding"
-                            type="checkbox"
-                            checked={isOnboarding}
-                            onChange={(e) => setIsOnboarding(e.target.checked)}
-                            className="h-5 w-5 rounded border-[#D1D5DB] text-[#4A9B9B] focus:ring-[#4A9B9B]"
-                        />
-                        <label htmlFor="isOnboarding" className="text-sm font-medium text-[#4B5563] cursor-pointer">
-                            ¿Es un cuestionario de Onboarding? (Primer uso)
+                    {/* Type selection */}
+                    <div className="flex flex-col gap-2 bg-[#F9FAFB] p-4 rounded-xl border border-[#F3F4F6]">
+                        <label htmlFor="questionnaireType" className="text-sm font-medium text-[#1A1A1A]">
+                            Tipo de Cuestionario                            ¿Es un cuestionario de Onboarding? (Primer uso)
                         </label>
+                        <select
+                            id="questionnaireType"
+                            value={type}
+                            onChange={(e) => setType(e.target.value as any)}
+                            className="bg-white rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#1A1A1A] focus:border-[#4A9B9B] focus:outline-none focus:ring-1 focus:ring-[#4A9B9B]"
+                        >
+                            <option value="standard">Estándar</option>
+                            <option value="onboarding">Onboarding (Primer uso)</option>
+                            <option value="who5">WHO-5 (Bienestar)</option>
+                        </select>
                     </div>
                 </div>
 

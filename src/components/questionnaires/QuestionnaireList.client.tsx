@@ -17,7 +17,7 @@ const STANDALONE_ROUTES: Record<string, string> = {
 };
 
 const getCardVariant = (item: QuestionnaireWithProgress): CardVariant => {
-    if (item.questionnaire.is_onboarding) return 'onboarding';
+    if (item.questionnaire.type === 'onboarding') return 'onboarding';
     if (STANDALONE_ROUTES[item.questionnaire.id]) return 'who5';
     return 'normal';
 };
@@ -61,10 +61,10 @@ export function QuestionnaireListClient({
     const resolveRoute = (id: string) => STANDALONE_ROUTES[id] ?? `/questionnaires/session/${id}`;
 
     const handleStart = (item: QuestionnaireWithProgress) => {
-        const { id, is_onboarding } = item.questionnaire;
+        const { id, type } = item.questionnaire;
 
         // Check if it's the onboarding flow — bypass confirm dialog and standalone check
-        if (is_onboarding) {
+        if (type === 'onboarding') {
             router.push('/onboarding');
             return;
         }

@@ -16,7 +16,7 @@ interface QuestionnaireData {
     title: string;
     description: string | null;
     status: 'draft' | 'published' | 'archived';
-    is_onboarding: boolean;
+    type: 'onboarding' | 'who5' | 'standard';
     created_at: string;
     questionnaire_questions: QuestionNode[];
 }
@@ -106,7 +106,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     // ─── Base Info Edit ─────────────────────────────────────────────────────
-    const handleUpdateBaseInfo = async (field: 'title' | 'description', value: string) => {
+    const handleUpdateBaseInfo = async (field: 'title' | 'description' | 'type', value: string) => {
         if (!isDraft) return;
         try {
             const { error } = await supabase.from('questionnaires').update({ [field]: value }).eq('id', data.id);
@@ -242,7 +242,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                 .insert({
                     question_id: qId,
                     text: 'Nueva Opción',
-                    score: data.is_onboarding ? null : 0,
+                    score: data.type === 'onboarding' ? null : 0,
                     order_index: currentIndex
                 })
                 .select('*')
@@ -389,7 +389,8 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                                 {isDraft && <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold uppercase">Borrador</span>}
                                 {isPublished && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold uppercase">Publicado</span>}
                                 {isArchived && <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold uppercase">Archivado</span>}
-                                {data.is_onboarding && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold uppercase">Onboarding</span>}
+                                {data.type === 'onboarding' && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold uppercase">Onboarding</span>}
+                                {data.type === 'who5' && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold uppercase">WHO-5</span>}
                             </div>
                             <h1 className="text-2xl font-bold text-[#1A1A1A]">Modificar Cuestionario</h1>
                         </div>
@@ -452,6 +453,23 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                             />
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-[#1A1A1A] mb-1">Tipo de Cuestionario</label>
+                        <select
+                            value={data.type}
+                            disabled={!isDraft}
+                            onChange={(e) => {
+                                const newType = e.target.value as 'onboarding' | 'who5' | 'standard';
+                                setData(prev => ({ ...prev, type: newType }));
+                                handleUpdateBaseInfo('type', newType);
+                            }}
+                            className="w-full rounded-xl border border-[#D1D5DB] px-4 py-2 text-[#1A1A1A] focus:border-[#4A9B9B] focus:outline-none focus:ring-1 focus:ring-[#4A9B9B] disabled:bg-gray-50"
+                        >
+                            <option value="standard">Estándar</option>
+                            <option value="onboarding">Onboarding (Primer uso)</option>
+                            <option value="who5">WHO-5 (Bienestar)</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Questions Container */}
@@ -467,7 +485,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                             isEditing={editingQuestionId === q.id}
                             isPublished={isPublished}
                             isDraft={isDraft}
-                            isOnboarding={data.is_onboarding}
+                            isOnboarding={data.type === 'onboarding'}
                             previousQuestions={data.questionnaire_questions.filter(
                                 pq => pq.order_index < q.order_index
                             )}

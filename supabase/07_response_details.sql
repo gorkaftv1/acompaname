@@ -9,7 +9,6 @@ SELECT
   p.name                          AS user_name,
   q.id                            AS questionnaire_id,
   q.title                         AS questionnaire_title,
-  q.is_onboarding,
   s.id                            AS session_id,
   s.status                        AS session_status,
   s.score                         AS session_score,
@@ -32,11 +31,3 @@ LEFT JOIN public.question_options   o  ON o.id  = r.option_id;
 
 -- RLS
 ALTER VIEW public.user_responses_detail SET (security_invoker = true);
-
-CREATE POLICY "Users read own response detail"
-  ON public.user_responses_detail FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Admin read all response detail"
-  ON public.user_responses_detail FOR SELECT
-  USING (public.is_admin());

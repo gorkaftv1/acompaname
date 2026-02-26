@@ -7,20 +7,6 @@ import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import WHO5Results from '@/components/who5/WHO5Results';
 import { who5ScoreCategories, type WHO5Result } from '@/lib/who5/who5.config';
 
-interface QuestionOption {
-    id: string;
-    text: string;
-    score: number | null;
-}
-
-interface QuestionnaireQuestion {
-    id: string;
-    title: string;
-    order_index: number;
-    type: string;
-}
-
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function QuestionnaireCompleteClient({ session }: { session: any }) {
     const router = useRouter();
@@ -31,7 +17,7 @@ export function QuestionnaireCompleteClient({ session }: { session: any }) {
         day: 'numeric',
     });
 
-    const is_onboarding = session.questionnaires.is_onboarding;
+    const is_onboarding = session.questionnaires.type === 'onboarding';
     const showScore = !is_onboarding && session.score !== null;
     const score = session.score;
 

@@ -16,7 +16,7 @@ export default async function QuestionnaireCompletePage({
         .from('questionnaire_sessions')
         .select(`
       *,
-      questionnaires ( id, title, description, is_onboarding ),
+      questionnaires ( id, title, description, type ),
       questionnaire_responses (
         *,
         questionnaire_questions ( id, title, order_index, type ),

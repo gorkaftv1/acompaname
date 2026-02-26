@@ -29,7 +29,7 @@ interface Questionnaire {
     id: string;
     title: string;
     description: string | null;
-    is_onboarding: boolean;
+    type: 'onboarding' | 'who5' | 'standard';
     questionnaire_questions: Question[];
 }
 
@@ -221,7 +221,7 @@ export default function QuestionnaireSessionClient({
         try {
             // Calculate score (only for non-onboarding questionnaires)
             let finalScore: number | null = null;
-            if (!questionnaire.is_onboarding) {
+            if (questionnaire.type !== 'onboarding') {
                 finalScore = 0;
                 for (const q of visibleQuestions) {
                     const selectedOptionId = responses[q.id];
@@ -396,8 +396,8 @@ export default function QuestionnaireSessionClient({
                                                 <label
                                                     key={opt.id}
                                                     className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-all duration-150 ${isSelected
-                                                            ? 'border-[#4A9B9B] bg-[#F0F9F9] text-[#2C5F7C] font-medium'
-                                                            : 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#A8C5B5] hover:bg-[#F9FAFB]'
+                                                        ? 'border-[#4A9B9B] bg-[#F0F9F9] text-[#2C5F7C] font-medium'
+                                                        : 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#A8C5B5] hover:bg-[#F9FAFB]'
                                                         }`}
                                                 >
                                                     <input

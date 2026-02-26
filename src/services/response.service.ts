@@ -175,11 +175,11 @@ export class ResponseService {
         // 2. Determine if it's onboarding
         const { data: qData } = await supabase
             .from('questionnaires')
-            .select('is_onboarding')
+            .select('type')
             .eq('id', questionnaireId)
             .single();
 
-        const isOnboarding = qData?.is_onboarding ?? false;
+        const isOnboarding = qData?.type === 'onboarding';
 
         let finalScore: number | null = null;
 

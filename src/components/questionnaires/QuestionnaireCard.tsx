@@ -18,7 +18,7 @@ export interface QuestionnaireWithProgress {
         title: string;
         description: string | null;
         status: string;
-        is_onboarding: boolean;
+        type: string;
     };
     answeredCount: number;
     totalQuestions: number;

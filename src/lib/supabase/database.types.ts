@@ -152,7 +152,7 @@ export interface Database {
                     id: string
                     title: string
                     description: string | null
-                    is_onboarding: boolean
+                    type: 'onboarding' | 'who5' | 'standard'
                     status: 'draft' | 'published' | 'archived'
                     created_at: string
                     updated_at: string
@@ -161,7 +161,7 @@ export interface Database {
                     id?: string
                     title: string
                     description?: string | null
-                    is_onboarding?: boolean
+                    type?: 'onboarding' | 'who5' | 'standard'
                     status?: 'draft' | 'published' | 'archived'
                     created_at?: string
                     updated_at?: string
@@ -170,7 +170,7 @@ export interface Database {
                     id?: string
                     title?: string
                     description?: string | null
-                    is_onboarding?: boolean
+                    type?: 'onboarding' | 'who5' | 'standard'
                     status?: 'draft' | 'published' | 'archived'
                     created_at?: string
                     updated_at?: string
@@ -368,7 +368,7 @@ export interface Database {
                     id: string
                     title: string
                     description: string | null
-                    is_onboarding: boolean
+                    type: 'onboarding' | 'who5' | 'standard'
                     status: 'draft' | 'published' | 'archived'
                     created_at: string
                     updated_at: string

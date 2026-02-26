@@ -20,7 +20,7 @@ export default async function QuestionnairesPage() {
     // 2. Fetch active questionnaires
     const { data: questionnaires, error: qErr } = await supabase
         .from('questionnaires')
-        .select('id, title, description, status, is_onboarding')
+        .select('id, title, description, status, type')
         .eq('status', 'published');
 
     if (qErr) {
@@ -53,7 +53,7 @@ export default async function QuestionnairesPage() {
             id,
             completed_at,
             questionnaire_id,
-            questionnaires ( title, is_onboarding )
+            questionnaires ( title, type )
         `)
         .eq('user_id', user.id)
         .eq('status', 'completed')
@@ -68,7 +68,7 @@ export default async function QuestionnairesPage() {
                     sessionId: session.id,
                     questionnaireId: session.questionnaire_id,
                     title: qData.title,
-                    isOnboarding: qData.is_onboarding,
+                    isOnboarding: qData.type === 'onboarding',
                     completedAt: session.completed_at
                 });
             }

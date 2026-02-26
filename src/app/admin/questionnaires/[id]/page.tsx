@@ -28,7 +28,7 @@ export default async function EditQuestionnairePage({ params }: { params: Promis
             title,
             description,
             status,
-            is_onboarding,
+            type,
             created_at,
             questionnaire_questions (
                 id,
