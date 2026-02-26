@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import PageLayout from '@/components/PageLayout';
 import AdminEditQuestionnaireClient from '@/components/admin/AdminEditQuestionnaireClient';
+import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,56 +21,12 @@ export default async function EditQuestionnairePage({ params }: { params: Promis
 
     const { id } = await params;
 
-    // Fetch Questionnaire Details (status, title, description, and related questions and options)
-    const { data: questionnaire, error: qErr } = await supabase
-        .from('questionnaires')
-        .select(`
-            id,
-            title,
-            description,
-            status,
-            type,
-            created_at,
-            questionnaire_questions (
-                id,
-                title,
-                description,
-                type,
-                order_index,
-                show_if,
-                is_deleted,
-                question_options (
-                    id,
-                    text,
-                    score,
-                    order_index
-                )
-            )
-        `)
-        .eq('id', id)
-        .single();
-
-    if (qErr || !questionnaire) {
+    let initialData;
+    try {
+        initialData = await AdminQuestionnaireService.getQuestionnaireById(id, supabase);
+    } catch (err) {
         return notFound();
     }
-
-    // Filter out deleted questions directly and sort by order_index
-    const questions = (questionnaire.questionnaire_questions || [])
-        .filter((q: any) => !q.is_deleted)
-        .map((q: any) => {
-            // Sort options natively here to pass clean props
-            const options = (q.question_options || []).sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
-            return {
-                ...q,
-                question_options: options
-            };
-        })
-        .sort((a: any, b: any) => a.order_index - b.order_index);
-
-    const initialData = {
-        ...questionnaire,
-        questionnaire_questions: questions
-    };
 
     return (
         <ProtectedRoute>

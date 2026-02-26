@@ -3,13 +3,8 @@ import { motion, type Variants } from 'framer-motion';
 import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { getRelativeTime } from '@/lib/utils/date';
 
-export interface CompletedSessionWithDetails {
-    sessionId: string;
-    questionnaireId: string;
-    title: string;
-    isOnboarding: boolean;
-    completedAt: string;
-}
+import type { CompletedSessionWithDetails } from '@/types/questionnaire.types';
+
 
 export interface CompletedSessionCardProps {
     session: CompletedSessionWithDetails;

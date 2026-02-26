@@ -7,8 +7,10 @@ import { Clock, CheckCircle2, BookOpen } from 'lucide-react';
 import { useQuestionnaireContext } from '@/lib/hooks/useQuestionnaireContext';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
-import { QuestionnaireCard, type QuestionnaireWithProgress, type CardVariant } from './QuestionnaireCard';
-import { CompletedSessionCard, type CompletedSessionWithDetails } from './CompletedSessionCard';
+import { QuestionnaireCard } from './QuestionnaireCard';
+import { CompletedSessionCard } from './CompletedSessionCard';
+import type { QuestionnaireWithProgress, CompletedSessionWithDetails } from '@/types/questionnaire.types';
+import type { CardVariant } from '@/types/questionnaire.types';
 import { SectionHeader, EmptySection } from './QuestionnaireSectionHeader';
 
 /** Questionnaire IDs that have a dedicated standalone route */
@@ -22,7 +24,7 @@ const getCardVariant = (item: QuestionnaireWithProgress): CardVariant => {
     return 'normal';
 };
 
-export type { QuestionnaireWithProgress, CompletedSessionWithDetails };
+
 
 const listVariants: Variants = {
     hidden: {},

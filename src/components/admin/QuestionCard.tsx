@@ -5,26 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plus, Edit2, Trash2, ArrowUp, ArrowDown, ChevronDown, ChevronUp, Save, X,
 } from 'lucide-react';
-import ShowIfBuilder, { type ShowIfRule } from '@/components/admin/ShowIfBuilder';
-
-// ─── Types (mirrored from parent — do not redefine in parent) ────────────────
-export interface OptionNode {
-    id: string;
-    text: string;
-    score: number | null;
-    order_index: number;
-}
-
-export interface QuestionNode {
-    id: string;
-    title: string;
-    description: string | null;
-    type: 'single_choice' | 'multiple_choice' | 'text';
-    order_index: number;
-    show_if: any;
-    is_deleted: boolean;
-    question_options: OptionNode[];
-}
+import ShowIfBuilder from '@/components/admin/ShowIfBuilder';
+import type { ShowIfRule } from '@/types/admin.types';
+import type { OptionNode, QuestionNode } from '@/types/admin.types';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface QuestionCardProps {
@@ -50,12 +33,12 @@ interface QuestionCardProps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-function parseShowIf(raw: any): import('@/components/admin/ShowIfBuilder').ShowIfRule | null {
+function parseShowIf(raw: any): ShowIfRule | null {
     if (!raw) return null;
     try {
         const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
         if (obj && typeof obj === 'object' && Array.isArray(obj.conditions)) {
-            return obj as import('@/components/admin/ShowIfBuilder').ShowIfRule;
+            return obj as ShowIfRule;
         }
     } catch {
         // ignore malformed legacy JSON

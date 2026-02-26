@@ -4,7 +4,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { QuestionnaireService } from '@/services/questionnaire.service';
 import { ResponseService } from '@/services/response.service';
 import PageLayout from '@/components/PageLayout';
-import { QuestionnaireListClient, type QuestionnaireWithProgress, type CompletedSessionWithDetails } from '@/components/questionnaires/QuestionnaireList.client';
+import { QuestionnaireListClient } from '@/components/questionnaires/QuestionnaireList.client';
+import type { QuestionnaireWithProgress, CompletedSessionWithDetails } from '@/types/questionnaire.types';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,12 +19,11 @@ export default async function QuestionnairesPage() {
     }
 
     // 2. Fetch active questionnaires
-    const { data: questionnaires, error: qErr } = await supabase
-        .from('questionnaires')
-        .select('id, title, description, status, type')
-        .eq('status', 'published');
-
-    if (qErr) {
+    let questionnaires;
+    try {
+        questionnaires = await QuestionnaireService.getPublishedQuestionnaires(supabase);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (qErr: any) {
         console.error('Error fetching questionnaires:', qErr.message);
         return (
             <PageLayout className="bg-[#F5F3EF]">
@@ -47,19 +47,14 @@ export default async function QuestionnairesPage() {
     const completedList: CompletedSessionWithDetails[] = [];
 
     // Fetch Completed Sessions
-    const { data: completedSessions, error: csErr } = await supabase
-        .from('questionnaire_sessions')
-        .select(`
-            id,
-            completed_at,
-            questionnaire_id,
-            questionnaires ( title, type )
-        `)
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .order('completed_at', { ascending: false });
+    let completedSessions: any[] = [];
+    try {
+        completedSessions = await ResponseService.getUserCompletedSessions(user.id, supabase);
+    } catch (csErr) {
+        console.error('Error fetching completed sessions', csErr);
+    }
 
-    if (!csErr && completedSessions) {
+    if (completedSessions.length > 0) {
         completedSessions.forEach((session: any) => {
             if (session.questionnaires) {
                 // Ensure array handling for relation

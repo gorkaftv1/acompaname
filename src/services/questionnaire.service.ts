@@ -58,6 +58,75 @@ export class QuestionnaireService {
   }
 
   /**
+   * Obtiene todos los cuestionarios publicados
+   */
+  static async getPublishedQuestionnaires(
+    supabaseClient?: SupabaseClient<Database>,
+  ): Promise<Pick<QuestionnaireRow, 'id' | 'title' | 'description' | 'status' | 'type'>[]> {
+    const supabase = supabaseClient ?? createBrowserClient();
+    const { data, error } = await supabase
+      .from('questionnaires')
+      .select('id, title, description, status, type')
+      .eq('status', 'published');
+
+    if (error) {
+      console.error('[QuestionnaireService][getPublishedQuestionnaires] Error:', error);
+      throw new Error(`QuestionnaireService.getPublishedQuestionnaires: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Obtiene un cuestionario publicado con sus preguntas y opciones, ordenado por order_index
+   */
+  static async getQuestionnaireWithQuestions(
+    id: string,
+    supabaseClient?: SupabaseClient<Database>,
+  ) {
+    const supabase = supabaseClient ?? createBrowserClient();
+
+    const { data: questionnaire, error } = await supabase
+      .from('questionnaires')
+      .select(`
+            *,
+            questionnaire_questions (
+                *,
+                question_options ( * )
+            )
+        `)
+      .eq('id', id)
+      .eq('status', 'published')
+      .single();
+
+    if (error) {
+      console.error('[QuestionnaireService][getQuestionnaireWithQuestions] Error:', error);
+      return null;
+    }
+
+    if (!questionnaire) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    questionnaire.questionnaire_questions = (questionnaire as any)
+      .questionnaire_questions
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((q: any) => !q.is_deleted)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .sort((a: any, b: any) => a.order_index - b.order_index)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((q: any) => ({
+        ...q,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        question_options: q.question_options.sort(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (a: any, b: any) => a.order_index - b.order_index
+        ),
+      }));
+
+    return questionnaire;
+  }
+
+  /**
    * Busca un cuestionario por su ID exacto.
    */
   static async getById(

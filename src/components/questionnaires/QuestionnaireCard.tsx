@@ -10,20 +10,8 @@ import { QuestionnaireProgressBar } from './QuestionnaireProgressBar';
 // Types
 // ---------------------------------------------------------------------------
 
-export type CardVariant = 'onboarding' | 'who5' | 'normal';
+import type { CardVariant, QuestionnaireWithProgress } from '@/types/questionnaire.types';
 
-export interface QuestionnaireWithProgress {
-    questionnaire: {
-        id: string;
-        title: string;
-        description: string | null;
-        status: string;
-        type: string;
-    };
-    answeredCount: number;
-    totalQuestions: number;
-    isCompleted: boolean;
-}
 
 export interface QuestionnaireCardProps {
     item: QuestionnaireWithProgress;

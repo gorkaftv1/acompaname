@@ -7,8 +7,9 @@ import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import WHO5Results from '@/components/who5/WHO5Results';
 import { who5ScoreCategories, type WHO5Result } from '@/lib/who5/who5.config';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function QuestionnaireCompleteClient({ session }: { session: any }) {
+import type { CompletedSessionDetails } from '@/types/questionnaire.types';
+
+export function QuestionnaireCompleteClient({ session }: { session: CompletedSessionDetails }) {
     const router = useRouter();
 
     const formattedDate = new Date(session.completed_at).toLocaleDateString('es-ES', {
@@ -73,8 +74,7 @@ export function QuestionnaireCompleteClient({ session }: { session: any }) {
                 animate="visible"
                 className="space-y-4"
             >
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                {session.questionnaire_responses.map((resp: any, index: number) => {
+                {session.questionnaire_responses.map((resp, index: number) => {
                     const question = resp.questionnaire_questions;
                     const option = resp.question_options;
                     const answerText = option ? option.text : resp.free_text_response;

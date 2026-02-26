@@ -4,34 +4,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { ResponseService } from '@/services/response.service';
 import { ChevronLeft, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface QuestionOption {
-    id: string;
-    text: string;
-    score: number | null;
-    order_index: number;
-}
-
-interface Question {
-    id: string;
-    title: string;
-    type: 'single_choice' | 'multiple_choice' | 'text';
-    order_index: number;
-    show_if: any | null;
-    question_options: QuestionOption[];
-}
-
-interface Questionnaire {
-    id: string;
-    title: string;
-    description: string | null;
-    type: 'onboarding' | 'who5' | 'standard';
-    questionnaire_questions: Question[];
-}
+import type { Questionnaire, Question } from '@/types/questionnaire.types';
 
 interface QuestionnaireSessionClientProps {
     questionnaire: Questionnaire;
@@ -96,55 +74,25 @@ export default function QuestionnaireSessionClient({
             setError(null);
 
             try {
-                // Look for existing in_progress session
-                const { data: existing } = await supabase
-                    .from('questionnaire_sessions')
-                    .select('id')
-                    .eq('user_id', userId)
-                    .eq('questionnaire_id', questionnaire.id)
-                    .eq('status', 'in_progress')
-                    .maybeSingle();
-
+                const sid = await ResponseService.getOrCreateActiveSession(userId, questionnaire.id, supabase);
                 if (!mounted) return;
 
-                if (existing) {
-                    setSessionId(existing.id);
+                setSessionId(sid);
 
-                    // Load previous responses to pre-populate state
-                    const { data: prevResponses } = await supabase
-                        .from('questionnaire_responses')
-                        .select('question_id, option_id, free_text_response')
-                        .eq('session_id', existing.id);
+                const prevResponses = await ResponseService.getSessionResponses(sid, supabase);
+                if (!mounted) return;
 
-                    if (!mounted) return;
-
-                    if (prevResponses && prevResponses.length > 0) {
-                        const map: Record<string, string> = {};
-                        prevResponses.forEach((r: any) => {
-                            if (r.option_id) {
-                                map[r.question_id] = r.option_id;
-                            } else if (r.free_text_response) {
-                                map[r.question_id] = r.free_text_response;
-                            }
-                        });
-                        setResponses(map);
-                    }
-                } else {
-                    // Create a new session
-                    const { data: newSession, error: createErr } = await supabase
-                        .from('questionnaire_sessions')
-                        .insert({
-                            user_id: userId,
-                            questionnaire_id: questionnaire.id,
-                            status: 'in_progress',
-                        })
-                        .select('id')
-                        .single();
-
-                    if (!mounted) return;
-                    if (createErr || !newSession) throw new Error(createErr?.message ?? 'No se pudo crear la sesión.');
-
-                    setSessionId(newSession.id);
+                if (prevResponses && prevResponses.length > 0) {
+                    const map: Record<string, string> = {};
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    prevResponses.forEach((r: any) => {
+                        if (r.option_id) {
+                            map[r.question_id] = r.option_id;
+                        } else if (r.free_text_response) {
+                            map[r.question_id] = r.free_text_response;
+                        }
+                    });
+                    setResponses(map);
                 }
             } catch (err) {
                 if (mounted) {
@@ -165,19 +113,13 @@ export default function QuestionnaireSessionClient({
         async (questionId: string, optionId: string | null, freeText: string | null) => {
             if (!sessionId) return;
 
-            await supabase.from('questionnaire_responses').upsert(
-                {
-                    user_id: userId,
-                    questionnaire_id: questionnaire.id,
-                    session_id: sessionId,
-                    question_id: questionId,
-                    option_id: optionId,
-                    free_text_response: freeText,
-                },
-                { onConflict: 'session_id,question_id' }
-            );
+            try {
+                await ResponseService.saveResponse(userId, questionnaire.id, questionId, optionId, freeText);
+            } catch (err) {
+                console.error('Error saving response:', err);
+            }
         },
-        [sessionId, userId, questionnaire.id, supabase]
+        [sessionId, userId, questionnaire.id]
     );
 
     const handleOptionSelect = useCallback(
@@ -219,34 +161,12 @@ export default function QuestionnaireSessionClient({
         setError(null);
 
         try {
-            // Calculate score (only for non-onboarding questionnaires)
-            let finalScore: number | null = null;
-            if (questionnaire.type !== 'onboarding') {
-                finalScore = 0;
-                for (const q of visibleQuestions) {
-                    const selectedOptionId = responses[q.id];
-                    if (selectedOptionId) {
-                        const opt = q.question_options.find((o) => o.id === selectedOptionId);
-                        if (opt?.score !== null && opt?.score !== undefined) {
-                            finalScore += opt.score;
-                        }
-                    }
-                }
-            }
+            await ResponseService.completeSession(userId, questionnaire.id, supabase);
 
-            // Mark session as completed
-            const { error: updateErr } = await supabase
-                .from('questionnaire_sessions')
-                .update({
-                    status: 'completed',
-                    score: finalScore,
-                    completed_at: new Date().toISOString(),
-                })
-                .eq('id', sessionId);
+            // Fetch the completed session details to get the final score calculated by the backend via service
+            const sessionDetails = await ResponseService.getCompletedSessionDetails(sessionId, userId, supabase);
 
-            if (updateErr) throw new Error(updateErr.message);
-
-            setScore(finalScore);
+            setScore(sessionDetails?.score ?? null);
             setIsCompleted(true);
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Error al enviar el cuestionario.';

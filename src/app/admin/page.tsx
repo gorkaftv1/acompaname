@@ -9,16 +9,10 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import PageLayout from '@/components/PageLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
+import type { AdminSurveySummary } from '@/types/admin.types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-interface Survey {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  created_at: string;
-}
 
 type PageState = 'loading' | 'unauthorized' | 'error' | 'ready';
 
@@ -114,7 +108,7 @@ function AdminContent() {
   const { user } = useAuthStore();
 
   const [pageState, setPageState] = useState<PageState>('loading');
-  const [surveys, setSurveys] = useState<Survey[]>([]);
+  const [surveys, setSurveys] = useState<AdminSurveySummary[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -140,18 +134,8 @@ function AdminContent() {
     }
 
     try {
-      const { data: surveysData, error: surveysError } = await supabase
-        .from('questionnaires')
-        .select('id, title, description, status, created_at')
-        .order('created_at', { ascending: false });
-
-      if (surveysError) {
-        setFetchError(surveysError.message);
-        setPageState('ready');
-        return;
-      }
-
-      setSurveys(surveysData ?? []);
+      const surveysData = await AdminQuestionnaireService.getAllQuestionnaires(supabase);
+      setSurveys(surveysData);
       setPageState('ready');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error inesperado';
@@ -181,12 +165,12 @@ function AdminContent() {
       variant: 'danger',
       onConfirm: async () => {
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-        const { error } = await supabase.from('questionnaires').delete().eq('id', id);
-        if (error) {
-          alert(`No se pudo eliminar: ${error.message}`);
-          return;
+        try {
+          await AdminQuestionnaireService.deleteQuestionnaire(id, supabase);
+          setSurveys((prev) => prev.filter((s) => s.id !== id));
+        } catch (err: any) {
+          alert(`No se pudo eliminar: ${err.message}`);
         }
-        setSurveys((prev) => prev.filter((s) => s.id !== id));
       },
     });
   };

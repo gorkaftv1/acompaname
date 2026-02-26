@@ -133,7 +133,7 @@ BEGIN
   ('d0000008-0000-0000-0008-000000000004', P8,  4, 'Estar con gente: planes sociales, quedar, hablar'),
 
   -- ── P9 ───────────────────────────────────────────────────────────────────────
-  ('d0000009-0000-0000-0009-000000000001', P9,  1, 'Bien, tengo red y me siento acompañado/a'),
+  ('d0000009-0000-0000-0009-000000000001', P9,  1, 'Bien, tengo tengo un grupo de amigos bueno y me siento acompañado/a'),
   ('d0000009-0000-0000-0009-000000000002', P9,  2, 'Tengo a alguien, pero me gustaría más apoyo'),
   ('d0000009-0000-0000-0009-000000000003', P9,  3, 'Me siento bastante solo/a con todo esto'),
   ('d0000009-0000-0000-0009-000000000004', P9,  4, 'Prefiero no entrar ahí ahora mismo'),
@@ -347,9 +347,9 @@ BEGIN
   ('d0000052-0000-0000-0052-000000000001', P46, 1, 'Una conversación tensa o un roce'),
   ('d0000052-0000-0000-0052-000000000002', P46, 2, 'Quedarse solo/a'),
   ('d0000052-0000-0000-0052-000000000003', P46, 3, 'Situaciones con mucha gente'),
-  ('d0000052-0000-0000-0052-000000000004', P46, 4, 'No saber qué va a pasar / la incertidumbre'),
+  ('d0000052-0000-0000-0052-000000000004', P46, 4, 'Situaciones de incertidumbre'),
   ('d0000052-0000-0000-0052-000000000005', P46, 5, 'Temas de orden, limpieza o gestión del entorno'),
-  ('d0000052-0000-0000-0052-000000000006', P46, 6, 'Salir de casa o cambiar de rutina'),
+  ('d0000052-0000-0000-0052-000000000006', P46, 6, 'Cambios de rutina repentinos'),
   ('d0000052-0000-0000-0052-000000000007', P46, 7, 'Presión del trabajo o los estudios'),
   ('d0000052-0000-0000-0052-000000000008', P46, 8, 'Otra cosa'),
 

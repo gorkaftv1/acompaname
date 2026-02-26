@@ -1,25 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ChevronLeft, Plus, AlertCircle, Archive, Globe } from 'lucide-react';
 import Link from 'next/link';
-import QuestionCard, { type QuestionNode, type OptionNode } from '@/components/admin/QuestionCard';
+import QuestionCard from '@/components/admin/QuestionCard';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-
-// ─── Types ─────────────────────────────────────────────────────────────────
-// OptionNode and QuestionNode are imported + re-exported from QuestionCard
-
-interface QuestionnaireData {
-    id: string;
-    title: string;
-    description: string | null;
-    status: 'draft' | 'published' | 'archived';
-    type: 'onboarding' | 'who5' | 'standard';
-    created_at: string;
-    questionnaire_questions: QuestionNode[];
-}
+import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
+import type { QuestionNode, OptionNode, QuestionnaireData } from '@/types/admin.types';
 
 // ─── Main Component ────────────────────────────────────────────────────────
 export default function AdminEditQuestionnaireClient({ initialData }: { initialData: QuestionnaireData }) {
@@ -63,8 +52,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                 setIsSaving(true);
                 setError(null);
                 try {
-                    const { error: rpcError } = await supabase.rpc('publish_questionnaire', { p_questionnaire_id: data.id });
-                    if (rpcError) throw rpcError;
+                    await AdminQuestionnaireService.publishQuestionnaire(data.id, supabase);
                     setData(prev => ({ ...prev, status: 'published' }));
                     setSuccessMsg('Cuestionario publicado correctamente.');
                 } catch (err: any) {
@@ -88,11 +76,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                 setIsSaving(true);
                 setError(null);
                 try {
-                    const { error: updError } = await supabase
-                        .from('questionnaires')
-                        .update({ status: 'archived' })
-                        .eq('id', data.id);
-                    if (updError) throw updError;
+                    await AdminQuestionnaireService.archiveQuestionnaire(data.id, supabase);
                     setData(prev => ({ ...prev, status: 'archived' }));
                     setSuccessMsg('Cuestionario archivado correctamente.');
                 } catch (err: any) {
@@ -109,8 +93,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     const handleUpdateBaseInfo = async (field: 'title' | 'description' | 'type', value: string) => {
         if (!isDraft) return;
         try {
-            const { error } = await supabase.from('questionnaires').update({ [field]: value }).eq('id', data.id);
-            if (error) throw error;
+            await AdminQuestionnaireService.updateQuestionnaireBaseInfo(data.id, { [field]: value }, supabase);
             setData(prev => ({ ...prev, [field]: value }));
         } catch (err) {
             console.error('Error updating base info:', err);
@@ -126,20 +109,8 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
             : 0;
 
         try {
-            const { data: newQ, error } = await supabase
-                .from('questionnaire_questions')
-                .insert({
-                    questionnaire_id: data.id,
-                    title: 'Nueva Pregunta',
-                    type: 'single_choice',
-                    order_index: currentIndex
-                })
-                .select('*')
-                .single();
+            const newNode = await AdminQuestionnaireService.addQuestion(data.id, currentIndex, supabase);
 
-            if (error) throw error;
-
-            const newNode: QuestionNode = { ...newQ, question_options: [] };
             setData(prev => ({
                 ...prev,
                 questionnaire_questions: [...prev.questionnaire_questions, newNode].sort((a, b) => a.order_index - b.order_index)
@@ -156,13 +127,16 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
         if (!isDraft) return;
         try {
             const payload = { ...updates };
-            // Ensure JSONB is parsed correctly
-            if (payload.show_if && typeof payload.show_if === 'string') {
-                payload.show_if = JSON.parse(payload.show_if);
+            if (payload.show_if && typeof payload.show_if === 'object') {
+                payload.show_if = JSON.stringify(payload.show_if);
             }
 
-            const { error } = await supabase.from('questionnaire_questions').update(payload).eq('id', qId);
-            if (error) throw error;
+            await AdminQuestionnaireService.updateQuestion(qId, payload, supabase);
+
+            // Revert strict JSON conversion back for React State holding object
+            if (updates.show_if && typeof updates.show_if === 'string') {
+                updates.show_if = JSON.parse(updates.show_if);
+            }
 
             setData(prev => ({
                 ...prev,
@@ -184,8 +158,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
             confirmLabel: 'Eliminar',
             action: async () => {
                 try {
-                    const { error } = await supabase.from('questionnaire_questions').update({ is_deleted: true }).eq('id', qId);
-                    if (error) throw error;
+                    await AdminQuestionnaireService.deleteQuestion(qId, supabase);
                     setData(prev => ({
                         ...prev,
                         questionnaire_questions: prev.questionnaire_questions.filter(q => q.id !== qId)
@@ -212,10 +185,11 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
         normalized[targetIndex].order_index = tempOrder;
 
         try {
-            await Promise.all([
-                supabase.from('questionnaire_questions').update({ order_index: normalized[index].order_index }).eq('id', normalized[index].id),
-                supabase.from('questionnaire_questions').update({ order_index: normalized[targetIndex].order_index }).eq('id', normalized[targetIndex].id),
-            ]);
+            await AdminQuestionnaireService.reorderQuestions(
+                { id: normalized[index].id, order_index: normalized[index].order_index },
+                { id: normalized[targetIndex].id, order_index: normalized[targetIndex].order_index },
+                supabase
+            );
             setData(prev => ({
                 ...prev,
                 questionnaire_questions: normalized.sort((a, b) => a.order_index - b.order_index),
@@ -237,17 +211,12 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
             : 0;
 
         try {
-            const { data: newOpt, error } = await supabase
-                .from('question_options')
-                .insert({
-                    question_id: qId,
-                    text: 'Nueva Opción',
-                    score: data.type === 'onboarding' ? null : 0,
-                    order_index: currentIndex
-                })
-                .select('*')
-                .single();
-            if (error) throw error;
+            const newOpt = await AdminQuestionnaireService.addOption(
+                qId,
+                currentIndex,
+                data.type === 'onboarding',
+                supabase
+            );
 
             setData(prev => ({
                 ...prev,
@@ -266,8 +235,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     const handleUpdateOption = async (qId: string, optId: string, updates: Partial<OptionNode>) => {
         if (!isDraft) return;
         try {
-            const { error } = await supabase.from('question_options').update(updates).eq('id', optId);
-            if (error) throw error;
+            await AdminQuestionnaireService.updateOption(optId, updates, supabase);
 
             setData(prev => ({
                 ...prev,
@@ -295,8 +263,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
             confirmLabel: 'Eliminar',
             action: async () => {
                 try {
-                    const { error } = await supabase.from('question_options').delete().eq('id', optId);
-                    if (error) throw error;
+                    await AdminQuestionnaireService.deleteOption(optId, supabase);
                     setData(prev => ({
                         ...prev,
                         questionnaire_questions: prev.questionnaire_questions.map(q =>
@@ -330,10 +297,11 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
         normalized[targetIndex].order_index = tempOrder;
 
         try {
-            await Promise.all([
-                supabase.from('question_options').update({ order_index: normalized[optIndex].order_index }).eq('id', normalized[optIndex].id),
-                supabase.from('question_options').update({ order_index: normalized[targetIndex].order_index }).eq('id', normalized[targetIndex].id),
-            ]);
+            await AdminQuestionnaireService.reorderOptions(
+                { id: normalized[optIndex].id, order_index: normalized[optIndex].order_index },
+                { id: normalized[targetIndex].id, order_index: normalized[targetIndex].order_index },
+                supabase
+            );
             setData(prev => ({
                 ...prev,
                 questionnaire_questions: prev.questionnaire_questions.map(x =>

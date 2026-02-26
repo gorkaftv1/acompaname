@@ -1,20 +1,7 @@
 'use client';
 
-import React from 'react';
 import { Plus, X, Eye, EyeOff } from 'lucide-react';
-import type { QuestionNode } from '@/components/admin/QuestionCard';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface ShowIfCondition {
-    question_id: string;
-    option_ids: string[];
-}
-
-export interface ShowIfRule {
-    operator: 'OR' | 'AND';
-    conditions: ShowIfCondition[];
-}
+import type { QuestionNode, ShowIfRule, ShowIfCondition } from '@/types/admin.types';
 
 interface ShowIfBuilderProps {
     value: ShowIfRule | null;
@@ -85,8 +72,8 @@ export default function ShowIfBuilder({ value, previousQuestions, onChange }: Sh
                     type="button"
                     onClick={() => handleToggle(false)}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${!isActive
-                            ? 'border-[#4A9B9B] bg-teal-50 text-[#2C5F7C]'
-                            : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                        ? 'border-[#4A9B9B] bg-teal-50 text-[#2C5F7C]'
+                        : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                         }`}
                 >
                     <Eye size={12} />
@@ -96,8 +83,8 @@ export default function ShowIfBuilder({ value, previousQuestions, onChange }: Sh
                     type="button"
                     onClick={() => handleToggle(true)}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${isActive
-                            ? 'border-[#4A9B9B] bg-teal-50 text-[#2C5F7C]'
-                            : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                        ? 'border-[#4A9B9B] bg-teal-50 text-[#2C5F7C]'
+                        : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
                         }`}
                 >
                     <EyeOff size={12} />
@@ -178,8 +165,8 @@ export default function ShowIfBuilder({ value, previousQuestions, onChange }: Sh
                                                                 type="button"
                                                                 onClick={() => toggleOptionId(condIdx, opt.id)}
                                                                 className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${active
-                                                                        ? 'border-[#4A9B9B] bg-[#4A9B9B] text-white'
-                                                                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-[#4A9B9B] hover:bg-teal-50'
+                                                                    ? 'border-[#4A9B9B] bg-[#4A9B9B] text-white'
+                                                                    : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-[#4A9B9B] hover:bg-teal-50'
                                                                     }`}
                                                             >
                                                                 {opt.text}

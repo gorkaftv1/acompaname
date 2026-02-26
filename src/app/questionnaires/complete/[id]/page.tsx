@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { QuestionnaireCompleteClient } from '@/components/questionnaires/QuestionnaireCompleteClient';
+import { ResponseService } from '@/services/response.service';
+import type { CompletedSessionDetails } from '@/types/questionnaire.types';
 
 export default async function QuestionnaireCompletePage({
     params,
@@ -12,30 +14,9 @@ export default async function QuestionnaireCompletePage({
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data: session } = await supabase
-        .from('questionnaire_sessions')
-        .select(`
-      *,
-      questionnaires ( id, title, description, type ),
-      questionnaire_responses (
-        *,
-        questionnaire_questions ( id, title, order_index, type ),
-        question_options ( id, text, score )
-      )
-    `)
-        .eq('id', id)
-        .eq('user_id', user!.id)
-        .eq('status', 'completed')
-        .single();
+    const session = await ResponseService.getCompletedSessionDetails(id, user!.id, supabase);
 
     if (!session) notFound();
 
-    // Ordena respuestas por order_index de la pregunta
-    session.questionnaire_responses = session.questionnaire_responses
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .sort((a: any, b: any) =>
-            a.questionnaire_questions.order_index - b.questionnaire_questions.order_index
-        );
-
-    return <QuestionnaireCompleteClient session={session} />;
+    return <QuestionnaireCompleteClient session={session as unknown as CompletedSessionDetails} />;
 }

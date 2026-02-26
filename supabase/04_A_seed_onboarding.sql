@@ -139,25 +139,25 @@ BEGIN
     '¿Cómo te llamas?',
     NULL, 'text', NULL),
   (P2,  q_id,  2,
-    '¿Y cómo llamamos a la persona que acompañas por aquí?',
+    '¿{{Y}} cómo llamamos a quien estás ayudando por aquí?',
     'Nombre o apodo, como te salga natural.', 'text', NULL),
   (P3,  q_id,  3,
-    '¿Cuál es tu situación ahora mismo?',
+    '¿Cuál es tu situación ahora mismo {{Y}}?',
     NULL, 'single_choice', NULL),
   (P4,  q_id,  4,
-    '¿Qué es lo que estás estudiando ahora mismo?',
+    '¿Qué es lo que estás estudiando ahora mismo {{Y}}?',
     'Para situar el ritmo que llevas.', 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P3,'option_ids',jsonb_build_array(P3_O2))
     ))),
   (P5,  q_id,  5,
-    '¿Cómo llevas el ritmo y la carga de los estudios últimamente?',
+    '¿Cómo llevas el ritmo y la carga de los estudios últimamente {{Y}}?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P3,'option_ids',jsonb_build_array(P3_O2))
     ))),
   (P6,  q_id,  6,
-    '¿Qué es lo que más te está pesando de esta etapa de estudios?',
+    '¿Qué es lo que más te está pesando de esta etapa de estudios {{Y}}?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P3,'option_ids',jsonb_build_array(P3_O2))
@@ -173,17 +173,17 @@ BEGIN
     NULL, 'single_choice', NULL),
   -- ── FASE 2: EL VÍNCULO ──────────────────────────────────────────────────────
   (P10, q_id, 10,
-    '¿Qué es esta persona para ti?',
+    '¿Qué es esta {{X}} para ti?',
     NULL, 'single_choice', NULL),
   -- ── RAMA LABORAL ─────────────────────────────────────────────────────────────
   (P11, q_id, 11,
-    'En el curro: ¿cómo es la dinámica entre vosotros?',
+    'En el curro: ¿cómo va la cosa con {{X}}?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P10,'option_ids',jsonb_build_array(P10_O4))
     ))),
   (P12, q_id, 12,
-    'En una semana normal, ¿cuánto os toca trataros?',
+    'En una semana normal, ¿Soléis coincidir mucho?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P10,'option_ids',jsonb_build_array(P10_O4))
@@ -294,7 +294,7 @@ BEGIN
     ))),
   -- ── RAMA AMISTAD ─────────────────────────────────────────────────────────────
   (P29, q_id, 30,
-    '¿Cuánto habláis o os veis ahora mismo?',
+    '¿Cuánto habláis u os veis ahora mismo?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P10,'option_ids',jsonb_build_array(P10_O3))
@@ -410,7 +410,7 @@ BEGIN
       jsonb_build_object('question_id',P35D,'option_ids',jsonb_build_array(P35D_O1))
     ))),
   (P43, q_id, 47,
-    '¿Te da la sensación de que está en modo "sobrevivir el día"?',
+    '¿Te da la sensación de que {{X}} está como ded bajón y parece que simplemente está?',
     'Evita ciertos temas, sitios o personas.', 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P35, 'option_ids',jsonb_build_array(P35_O1)),
@@ -427,7 +427,7 @@ BEGIN
       jsonb_build_object('question_id',P35D,'option_ids',jsonb_build_array(P35D_O2))
     ))),
   (P45, q_id, 49,
-    '¿Sientes que vas pisando huevos para que no se altere?',
+    '¿Tienes que tener extremo cuidado cuando hablas con {{X}} para evitar situaciones no deseadas?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P35, 'option_ids',jsonb_build_array(P35_O2)),
@@ -451,7 +451,7 @@ BEGIN
       jsonb_build_object('question_id',P35D,'option_ids',jsonb_build_array(P35D_O2))
     ))),
   (P48, q_id, 52,
-    '¿Esto te pilla de sorpresa o ya lo ves venir?',
+    '¿Estas situaciones te pillan de sorpresa o ya lo ves venir?',
     'Ciertas horas, sitios, personas.', 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P35, 'option_ids',jsonb_build_array(P35_O2)),
@@ -459,7 +459,7 @@ BEGIN
       jsonb_build_object('question_id',P35D,'option_ids',jsonb_build_array(P35D_O2))
     ))),
   (P49, q_id, 53,
-    'Cuando intentas pausar o redirigir: ¿qué suele pasar?',
+    '¿Cuando intentas calmar la situación que pasa?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P35, 'option_ids',jsonb_build_array(P35_O2)),
@@ -467,7 +467,7 @@ BEGIN
       jsonb_build_object('question_id',P35D,'option_ids',jsonb_build_array(P35D_O2))
     ))),
   (P50, q_id, 54,
-    'Ocurre algo → se pone en alerta → reacciona... ¿y después qué?',
+    'EL bucle de que ocurra algo → se ponga en alerta → reaccione... ¿y después qué?',
     'Cuéntamelo en 2-3 frases.', 'text',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P35, 'option_ids',jsonb_build_array(P35_O2)),
@@ -531,24 +531,21 @@ BEGIN
     '¿Notas que estás disfrutando menos de lo que normalmente te recarga?',
     'Salir, descansar, hobbies, tiempo con gente.', 'single_choice', NULL),
   (P62, q_id, 66,
-    'Para sostener esta situación: ¿cómo te sientes?',
+    '¿Cómo te sientes manteniendo esta situación?',
     NULL, 'single_choice', NULL),
   (P63, q_id, 67,
-    '¿Qué es lo que más te está desgastando por dentro?',
+    '¿Qué es lo que más te agota?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P62,'option_ids',jsonb_build_array(P62_O3))
     ))),
   (P64, q_id, 68,
-    '¿Con quién te apoyas tú ahora mismo?',
+    '¿Quién te está apoyando ahora mismo?',
     NULL, 'single_choice', NULL),
   (P65, q_id, 69,
-    '¿Qué acuerdo contigo mismo/a necesitas sí o sí para no romperte?',
+    '¿{{Y}} tienes algún tipo de norma que sigues para que la situación no te sobrepase?',
     NULL, 'single_choice', NULL),
   (P66, q_id, 70,
-    '¿Hay ya algún tipo de acompañamiento o apoyo externo en marcha?',
-    'Orientación, coaching, consulta.', 'single_choice', NULL),
-  (P67, q_id, 71,
     '¿Qué te gustaría llevarte de esta conversación?',
     NULL, 'single_choice', NULL)
   ON CONFLICT (id) DO UPDATE

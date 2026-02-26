@@ -100,6 +100,81 @@ export class ResponseService {
         return newSession.id;
     }
 
+    static async getSessionResponses(sessionId: string, supabaseClient?: SupabaseClient<Database>) {
+        const supabase = supabaseClient ?? createBrowserClient();
+        console.log('[ResponseService][getSessionResponses] Cargando respuestas', { sessionId });
+        const { data: responses, error } = await supabase
+            .from('questionnaire_responses')
+            .select('question_id, option_id, free_text_response')
+            .eq('session_id', sessionId);
+
+        if (error) {
+            console.error('[ResponseService][getSessionResponses] Error:', error);
+            throw new Error(`ResponseService.getSessionResponses: ${error.message}`);
+        }
+        return responses || [];
+    }
+
+    static async getUserCompletedSessions(userId: string, supabaseClient?: SupabaseClient<Database>) {
+        const supabase = supabaseClient ?? createBrowserClient();
+        console.log('[ResponseService][getUserCompletedSessions] Cargando sesiones completadas', { userId });
+        const { data: sessions, error } = await supabase
+            .from('questionnaire_sessions')
+            .select(`
+                id,
+                completed_at,
+                questionnaire_id,
+                score,
+                questionnaires ( title, type, description )
+            `)
+            .eq('user_id', userId)
+            .eq('status', 'completed')
+            .order('completed_at', { ascending: false });
+
+        if (error) {
+            console.error('[ResponseService][getUserCompletedSessions] Error:', error);
+            throw new Error(`ResponseService.getUserCompletedSessions: ${error.message}`);
+        }
+        return sessions || [];
+    }
+
+    static async getCompletedSessionDetails(sessionId: string, userId: string, supabaseClient?: SupabaseClient<Database>) {
+        const supabase = supabaseClient ?? createBrowserClient();
+        console.log('[ResponseService][getCompletedSessionDetails] Cargando detalles de sesión', { sessionId, userId });
+        const { data: session, error } = await supabase
+            .from('questionnaire_sessions')
+            .select(`
+                id,
+                completed_at,
+                score,
+                questionnaires ( id, title, description, type ),
+                questionnaire_responses (
+                    id,
+                    free_text_response,
+                    questionnaire_questions ( id, title, order_index, type ),
+                    question_options ( id, text, score )
+                )
+            `)
+            .eq('id', sessionId)
+            .eq('user_id', userId)
+            .eq('status', 'completed')
+            .single();
+
+        if (error || !session) {
+            console.error('[ResponseService][getCompletedSessionDetails] Error o no encontrado:', error);
+            return null;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        session.questionnaire_responses = (session as any).questionnaire_responses
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .sort((a: any, b: any) =>
+                a.questionnaire_questions.order_index - b.questionnaire_questions.order_index
+            );
+
+        return session;
+    }
+
     // ── Core Operations ──
 
     /**

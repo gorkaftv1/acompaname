@@ -7,6 +7,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { ChevronLeft, Plus, Save, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/store/auth.store';
+import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
 
 export default function AdminCreateQuestionnaireClient({ userId }: { userId: string }) {
     const router = useRouter();
@@ -34,24 +35,13 @@ export default function AdminCreateQuestionnaireClient({ userId }: { userId: str
         setError(null);
 
         try {
-            const { data, error: insertError } = await supabase
-                .from('questionnaires')
-                .insert({
-                    title: title.trim(),
-                    description: description.trim() || null,
-                    status: 'draft',
-                    type: type
-                })
-                .select('id')
-                .single();
+            const newId = await AdminQuestionnaireService.createQuestionnaire({
+                title: title.trim(),
+                description: description.trim() || null,
+                type: type
+            }, supabase);
 
-            if (insertError) {
-                throw insertError;
-            }
-
-            if (data?.id) {
-                router.push(`/admin/questionnaires/${data.id}`);
-            }
+            router.push(`/admin/questionnaires/${newId}`);
         } catch (err: any) {
             console.error('Error creating questionnaire:', err);
             setError(err.message || 'Error inesperado al crear el cuestionario.');
