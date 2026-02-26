@@ -23,7 +23,6 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [currentEmotion, setCurrentEmotion] = useState<EmotionType>('calm');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Load chat history on mount
@@ -31,10 +30,11 @@ export default function ChatInterface() {
     loadChatHistory();
   }, []);
 
-  // Auto-scroll to bottom when new message arrives
+  // Auto-scroll only the messages area (not the page)
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }
   }, [messages]);
 
@@ -280,8 +280,6 @@ export default function ChatInterface() {
                   </div>
                 </motion.div>
               )}
-
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}

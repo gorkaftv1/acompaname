@@ -12,7 +12,6 @@
 
 import { createBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/utils/logger';
-import { AIService } from '@/lib/services/ai.service';
 import type { Database } from '@/lib/supabase/database.types';
 
 // ---------------------------------------------------------------------------
@@ -22,12 +21,25 @@ type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row'];
 type ChatMessageInsert = Database['public']['Tables']['chat_messages']['Insert'];
 
 // ---------------------------------------------------------------------------
+// Successful API / n8n response
+// ---------------------------------------------------------------------------
+export interface ChatApiMessage {
+  id: string;
+  user_id: string;
+  role: string;
+  content: string;
+  emotion: 'calm' | 'okay' | 'challenging' | 'mixed';
+  created_at: string;
+}
+type ChatApiSuccess = ChatApiMessage | ChatApiMessage[];
+
+// ---------------------------------------------------------------------------
 // Tipo de dominio (camelCase)
 // ---------------------------------------------------------------------------
 export interface MessageData {
   id: string;
   userId: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   emotion?: 'calm' | 'okay' | 'challenging' | 'mixed' | null;
   createdAt: string;
@@ -79,14 +91,12 @@ export class ChatService {
 
       const supabase = createBrowserClient();
 
-      // Detectar emoción una sola vez (evita llamar analyzeSentiment dos veces)
-      const detectedEmotion = AIService.analyzeSentiment(data.content);
 
       const userPayload: ChatMessageInsert = {
         user_id: userId,
         role: 'user',
         content: data.content,
-        emotion: detectedEmotion,
+        emotion: null,
       };
 
       const { data: userMessageRow, error: userMessageError } = await supabase
@@ -102,38 +112,67 @@ export class ChatService {
 
       const userMessage = mapRowToMessage(userMessageRow);
 
-      const aiResponse = await AIService.generateResponse(data.content, detectedEmotion);
+      const apiRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          message: data.content,
+          currentEmotion: data.emotion ?? null,
+        }),
+      });
 
-      if (!aiResponse?.message) {
-        return { success: false, userMessage, error: 'Error al generar respuesta de IA' };
+      const rawText = await apiRes.text();
+      const apiData: Record<string, unknown> = rawText
+        ? (() => { try { return JSON.parse(rawText) as Record<string, unknown>; } catch { return {}; } })()
+        : {};
+
+      if (!apiRes.ok) {
+        const err = String(apiData?.error ?? 'Error al obtener respuesta de la IA');
+        const errorMsg = apiData?.details
+          ? `${err} (${String(apiData.details).slice(0, 120)})`
+          : err;
+        logger.error('ChatService', 'sendMessage: error API chat', errorMsg);
+        return {
+          success: false,
+          userMessage,
+          error: errorMsg,
+        };
       }
 
-      const aiPayload: ChatMessageInsert = {
-        user_id: userId,
+      const raw = (Array.isArray(apiData?.data) ? apiData.data : apiData) as ChatApiSuccess;
+      const msg: ChatApiMessage | undefined = Array.isArray(raw) ? raw[0] : raw;
+      const content = msg?.content ?? (msg as { message?: string })?.message;
+      if (!msg || typeof content !== 'string') {
+        logger.warn('ChatService', 'sendMessage: response without message', {
+          isArray: Array.isArray(apiData),
+          hasData: !!apiData?.data,
+          keys: typeof apiData === 'object' && apiData !== null ? Object.keys(apiData) : [],
+          preview: typeof apiData === 'object' ? JSON.stringify(apiData).slice(0, 300) : String(apiData),
+        });
+        return { success: false, userMessage, error: 'AI User Message Error' };
+      }
+
+      const emotion = ['calm', 'okay', 'challenging', 'mixed'].includes(msg.emotion)
+        ? msg.emotion
+        : null;
+
+      const aiMessage: MessageData = {
+        id: (msg as ChatApiMessage).id ?? `n8n-${Date.now()}`,
+        userId,
         role: 'assistant',
-        content: aiResponse.message,
-        emotion: aiResponse.emotion ?? detectedEmotion,
+        content,
+        emotion: emotion,
+        createdAt: (msg as ChatApiMessage).created_at ?? new Date().toISOString(),
       };
 
-      const { data: aiMessageRow, error: aiMessageError } = await supabase
-        .from('chat_messages')
-        .insert(aiPayload)
-        .select()
-        .single<ChatMessageRow>();
-
-      if (aiMessageError) {
-        logger.error('ChatService', 'sendMessage: error al guardar mensaje de IA', aiMessageError);
-        // El mensaje del usuario ya está guardado — éxito parcial
-        return { success: true, userMessage, error: 'Respuesta generada pero no guardada' };
-      }
-
-      return { success: true, userMessage, aiMessage: mapRowToMessage(aiMessageRow) };
+      return { success: true, userMessage, aiMessage };
     } catch (error) {
       logger.error('ChatService', 'sendMessage: error inesperado', error);
       if (error instanceof Error && error.name === 'AbortError') {
-        return { success: false, error: 'Error de conexión. Intenta recargar la página.' };
+        return { success: false, error: 'TimeOut' };
       }
-      return { success: false, error: 'Error inesperado al enviar el mensaje' };
+      return { success: false, error: 'System Error' };
     }
   }
 
