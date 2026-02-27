@@ -28,8 +28,10 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (userData: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
-  initializeAuth: () => Promise<void>;
   clearError: () => void;
+  // SSR Hydration
+  hydrate: (user: User | null) => void;
+  setSessionListener: (event: string, session: any, supabase: any) => Promise<void>;
 }
 
 /**
@@ -78,97 +80,34 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   error: null,
 
-  // Initialize authentication state on app load
-  initializeAuth: async () => {
-    // Limpiar la suscripción anterior para evitar memory leaks
-    if (currentAuthSubscription) {
-      currentAuthSubscription.unsubscribe();
-      currentAuthSubscription = null;
-    }
+  // Initialize authentication state synchronously from SSR
+  hydrate: (user: User | null) => {
+    set({
+      user,
+      isAuthenticated: !!user,
+      isLoading: false,
+      error: null,
+    });
+    logger.info('Auth', `Estado hidratado del SSR: ${user ? 'autenticado' : 'sin sesión'}`);
+  },
 
-    set({ isLoading: true });
-
-    logger.info('Auth', 'Inicializando autenticación...');
-
-    try {
-      const supabase = createBrowserClient();
-
-      // Get current session - just check if there's a session, don't verify email
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      logger.debug('Auth', 'Sesión recuperada:', {
-        hasSession: !!session,
-        hasUser: !!session?.user,
-        error: sessionError?.message,
-      });
-
-      if (sessionError) {
-        logger.error('Auth', 'Error getting session:', sessionError);
-        set({ user: null, isAuthenticated: false, isLoading: false });
-        return;
-      }
-
-      // If there's a session with a user, consider them authenticated
-      // We don't check email verification - just that they have a valid session
-      if (!session?.user) {
-        logger.info('Auth', 'No hay sesión activa');
-        set({ user: null, isAuthenticated: false, isLoading: false });
-        return;
-      }
-
-      logger.info('Auth', 'Usuario encontrado en sesión — autenticado');
-
-      // Get profile data
-      const { data: profile, error: profileError } = await supabase
+  // Manejar eventos de cambio de sesión en el cliente
+  setSessionListener: async (event, session, supabase) => {
+    if (event === 'SIGNED_OUT') {
+      set({ user: null, isAuthenticated: false });
+    } else if (session?.user) {
+      const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .maybeSingle();
-
-      if (profileError) {
-        logger.error('Auth', 'Error loading profile:', profileError);
-      }
 
       const user = mapSupabaseUser(session.user, profile ?? undefined);
 
       set({
         user,
         isAuthenticated: true,
-        isLoading: false,
-        error: null,
       });
-
-      logger.info('Auth', 'Estado de autenticación actualizado: usuario autenticado');
-
-      // Listen for auth changes — almacenamos la suscripción para poder
-      // limpiarla si initializeAuth se vuelve a llamar.
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          logger.info('Auth', 'Auth state cambió:', event);
-
-          if (event === 'SIGNED_OUT') {
-            set({ user: null, isAuthenticated: false });
-          } else if (session?.user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-
-            const user = mapSupabaseUser(session.user, profile ?? undefined);
-
-            set({
-              user,
-              isAuthenticated: true,
-            });
-
-          }
-        },
-      );
-      currentAuthSubscription = subscription;
-    } catch (error) {
-      logger.error('Auth', 'Error initializing auth:', error);
-      set({ user: null, isAuthenticated: false, isLoading: false });
     }
   },
 

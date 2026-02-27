@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, type Variants, type Transition } from 'framer-motion';
 import { Plus, AlertCircle, ClipboardList } from 'lucide-react';
 import { QuestionnaireCard } from '@/components/admin/QuestionnaireCard';
@@ -104,6 +105,7 @@ const ErrorBanner: React.FC<{ message: string; onRetry: () => void }> = ({
 
 
 function AdminContent() {
+  const router = useRouter();
   const supabase = createBrowserClient();
   const { user } = useAuthStore();
 
@@ -150,11 +152,11 @@ function AdminContent() {
 
   // ── Action handlers ─────────────────────────────────────────────────────
   const handleCreateSurvey = () => {
-    window.location.href = '/admin/questionnaires/new';
+    router.push('/admin/questionnaires/new');
   };
 
   const handleEditSurvey = (id: string) => {
-    window.location.href = `/admin/questionnaires/${id}`;
+    router.push(`/admin/questionnaires/${id}`);
   };
 
   const handleDeleteSurvey = (id: string) => {
@@ -186,12 +188,12 @@ function AdminContent() {
         <p className="max-w-xs text-sm text-[#6B7280]">
           No tienes permisos de administrador para ver esta página.
         </p>
-        <a
-          href="/dashboard"
+        <button
+          onClick={() => router.push('/dashboard')}
           className="rounded-xl bg-[#2C5F7C] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#245170]"
         >
           Ir al dashboard
-        </a>
+        </button>
       </div>
     );
   }

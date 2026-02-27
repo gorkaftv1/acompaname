@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LogOut, User, Shield } from 'lucide-react';
 import { Button } from '@/components/ui';
@@ -42,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuthStore();
   const pathname = usePathname();
+  const router = useRouter();
 
   const isAdmin = isAuthenticated && user?.role === 'admin';
   const isOnAdminPage = pathname?.startsWith('/admin');
@@ -95,6 +96,10 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
           {/* Logo */}
           <motion.a
             href={isAuthenticated ? '/dashboard' : '/'}
+            onClick={(e) => {
+              e.preventDefault();
+              router.push(isAuthenticated ? '/dashboard' : '/');
+            }}
             className="text-xl font-bold text-[#2C5F7C] hover:text-[#4A9B9B] transition-colors"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -108,6 +113,10 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
               <motion.a
                 key={link.href}
                 href={link.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push(link.href);
+                }}
                 className="text-base text-[#1A1A1A] hover:text-[#4A9B9B] transition-colors"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -132,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                     variant={isOnAdminPage ? 'secondary' : 'primary'}
                     size="md"
                     onClick={() => {
-                      window.location.href = isOnAdminPage ? '/dashboard' : '/admin';
+                      router.push(isOnAdminPage ? '/dashboard' : '/admin');
                     }}
                   >
                     <Shield size={16} className="mr-1.5" />
@@ -144,7 +153,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                   size="md"
                   onClick={async () => {
                     await logout();
-                    window.location.href = '/';
+                    router.push('/');
                   }}
                 >
                   <LogOut size={18} className="mr-2" />
@@ -156,14 +165,14 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                 <Button
                   variant="secondary"
                   size="md"
-                  onClick={() => window.location.href = '/login'}
+                  onClick={() => router.push('/login')}
                 >
                   Iniciar sesión
                 </Button>
                 <Button
                   variant="primary"
                   size="md"
-                  onClick={() => window.location.href = '/register'}
+                  onClick={() => router.push('/register')}
                 >
                   Registrarse
                 </Button>
@@ -212,7 +221,11 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                     key={link.href}
                     href={link.href}
                     className="block py-3 px-4 text-base text-[#1A1A1A] hover:text-[#4A9B9B] hover:bg-white/50 rounded-lg transition-colors"
-                    onClick={handleLinkClick}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      router.push(link.href);
+                      handleLinkClick();
+                    }}
                     initial={{ x: -20, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ delay: index * 0.1 }}
@@ -243,7 +256,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                           size="md"
                           fullWidth
                           onClick={() => {
-                            window.location.href = isOnAdminPage ? '/dashboard' : '/admin';
+                            router.push(isOnAdminPage ? '/dashboard' : '/admin');
                             handleLinkClick();
                           }}
                         >
@@ -258,7 +271,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                         onClick={async () => {
                           await logout();
                           handleLinkClick();
-                          window.location.href = '/';
+                          router.push('/');
                         }}
                       >
                         <LogOut size={18} className="mr-2" />
@@ -272,7 +285,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                         size="md"
                         fullWidth
                         onClick={() => {
-                          window.location.href = '/login';
+                          router.push('/login');
                           handleLinkClick();
                         }}
                       >
@@ -283,7 +296,7 @@ export const Header: React.FC<HeaderProps> = ({ className = '' }) => {
                         size="md"
                         fullWidth
                         onClick={() => {
-                          window.location.href = '/register';
+                          router.push('/register');
                           handleLinkClick();
                         }}
                       >
