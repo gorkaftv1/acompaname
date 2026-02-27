@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import PageLayout from '@/components/PageLayout';
 import AdminEditQuestionnaireClient from '@/components/admin/AdminEditQuestionnaireClient';
 import AdminEditWHO5QuestionnaireClient from '@/components/admin/AdminEditWHO5QuestionnaireClient';
+import AdminEditOnboardingQuestionnaireClient from '@/components/admin/AdminEditOnboardingQuestionnaireClient';
 import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
 
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,8 @@ export default async function EditQuestionnairePage({ params }: { params: Promis
             <PageLayout className="bg-[#F5F3EF]">
                 {initialData.type === 'who5' ? (
                     <AdminEditWHO5QuestionnaireClient initialData={initialData} />
+                ) : initialData.type === 'onboarding' ? (
+                    <AdminEditOnboardingQuestionnaireClient initialData={initialData} />
                 ) : (
                     <AdminEditQuestionnaireClient initialData={initialData} />
                 )}

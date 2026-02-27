@@ -8,6 +8,7 @@ import Link from 'next/link';
 import QuestionCard from '@/components/admin/QuestionCard';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
+import { OnboardingService } from '@/lib/services/onboarding.service';
 import type { QuestionNode, OptionNode, QuestionnaireData } from '@/types/admin.types';
 
 // ─── Main Component ────────────────────────────────────────────────────────
@@ -40,10 +41,12 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     const isDraft = data.status === 'draft';
     const isPublished = data.status === 'published';
     const isArchived = data.status === 'archived';
+    const isEditable = isDraft || isArchived;
 
     // ─── Status Actions ─────────────────────────────────────────────────────
     const handlePublish = async () => {
-        if (!isDraft) return;
+        if (!isEditable) return;
+
         confirm({
             title: 'Publicar cuestionario',
             message: 'Al publicar el cuestionario se hará visible a los usuarios y NO se podrá modificar más. ¿Continuar?',
@@ -91,7 +94,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
 
     // ─── Base Info Edit ─────────────────────────────────────────────────────
     const handleUpdateBaseInfo = async (field: 'title' | 'description' | 'type', value: string) => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         try {
             await AdminQuestionnaireService.updateQuestionnaireBaseInfo(data.id, { [field]: value }, supabase);
             setData(prev => ({ ...prev, [field]: value }));
@@ -103,7 +106,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
 
     // ─── Question Logic ──────────────────────────────────────────────────────
     const handleAddQuestion = async () => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         const currentIndex = data.questionnaire_questions.length > 0
             ? Math.max(...data.questionnaire_questions.map(q => q.order_index)) + 1
             : 0;
@@ -124,7 +127,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     const handleUpdateQuestion = async (qId: string, updates: Partial<QuestionNode>) => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         console.log('[AdminEditQuestionnaireClient] handleUpdateQuestion triggered for qId:', qId, 'with updates:', updates);
         try {
             const payload = { ...updates };
@@ -155,7 +158,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     const handleDeleteQuestion = async (qId: string) => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         confirm({
             title: 'Eliminar pregunta',
             message: '¿Estás seguro de que quieres eliminar esta pregunta? Esta acción no se puede deshacer.',
@@ -177,7 +180,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     const handleReorderQuestion = async (index: number, direction: 'up' | 'down') => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         const sorted = [...data.questionnaire_questions].sort((a, b) => a.order_index - b.order_index);
         if (direction === 'up' && index === 0) return;
         if (direction === 'down' && index === sorted.length - 1) return;
@@ -207,7 +210,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
 
     // ─── Options Logic ───────────────────────────────────────────────────────
     const handleAddOption = async (qId: string) => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         const currentQ = data.questionnaire_questions.find(q => q.id === qId);
         if (!currentQ) return;
 
@@ -238,7 +241,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     const handleUpdateOption = async (qId: string, optId: string, updates: Partial<OptionNode>) => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         try {
             await AdminQuestionnaireService.updateOption(optId, updates, supabase);
 
@@ -260,7 +263,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     const handleDeleteOption = async (qId: string, optId: string) => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         confirm({
             title: 'Eliminar opción',
             message: '¿Estás seguro de que quieres eliminar esta opción?',
@@ -286,7 +289,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     const handleReorderOption = async (qId: string, optIndex: number, direction: 'up' | 'down') => {
-        if (!isDraft) return;
+        if (!isEditable) return;
         const q = data.questionnaire_questions.find(x => x.id === qId);
         if (!q) return;
 
@@ -368,7 +371,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                         </div>
 
                         <div className="flex gap-3">
-                            {isDraft && (
+                            {isEditable && (
                                 <button
                                     onClick={handlePublish}
                                     disabled={isSaving || data.questionnaire_questions.length === 0}
@@ -403,7 +406,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                             <input
                                 type="text"
                                 value={data.title}
-                                disabled={!isDraft}
+                                disabled={!isEditable}
                                 onChange={(e) => setData(prev => ({ ...prev, title: e.target.value }))}
                                 onBlur={(e) => {
                                     if (e.target.value !== initialData.title) handleUpdateBaseInfo('title', e.target.value);
@@ -415,7 +418,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                             <label className="block text-sm font-semibold text-[#1A1A1A] mb-1">Descripción</label>
                             <textarea
                                 value={data.description || ''}
-                                disabled={!isDraft}
+                                disabled={!isEditable}
                                 onChange={(e) => setData(prev => ({ ...prev, description: e.target.value }))}
                                 onBlur={(e) => {
                                     if (e.target.value !== initialData.description) handleUpdateBaseInfo('description', e.target.value);
@@ -429,7 +432,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                         <label className="block text-sm font-semibold text-[#1A1A1A] mb-1">Tipo de Cuestionario</label>
                         <select
                             value={data.type}
-                            disabled={!isDraft}
+                            disabled={!isEditable}
                             onChange={(e) => {
                                 const newType = e.target.value as 'onboarding' | 'who5' | 'standard';
                                 setData(prev => ({ ...prev, type: newType }));
@@ -455,7 +458,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                             totalQuestions={data.questionnaire_questions.length}
                             isEditing={editingQuestionId === q.id}
                             isPublished={isPublished}
-                            isDraft={isDraft}
+                            isDraft={isEditable}
                             previousQuestions={data.questionnaire_questions.filter(
                                 pq => pq.order_index < q.order_index
                             )}
@@ -480,7 +483,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                         </div>
                     )}
 
-                    {isDraft && (
+                    {isEditable && (
                         <button
                             onClick={handleAddQuestion}
                             className="w-full mt-4 py-4 border-2 border-dashed border-[#D1D5DB] rounded-xl flex items-center justify-center gap-2 text-[#6B7280] font-medium hover:bg-gray-50 hover:text-[#1A1A1A] hover:border-gray-400 transition-all"

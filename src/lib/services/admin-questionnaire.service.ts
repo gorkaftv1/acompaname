@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
 import type { QuestionNode, OptionNode, QuestionnaireData, AdminSurveySummary } from '@/types/admin.types';
+import { ONBOARDING_PROFILE_DESCRIPTIONS } from '@/lib/services/onboarding.service';
 
 type QuestionnaireRow = Database['public']['Tables']['questionnaires']['Row'];
 type QuestionSelect = Database['public']['Tables']['questionnaire_questions']['Row'];
@@ -49,6 +50,8 @@ export class AdminQuestionnaireService {
 
         if (payload.type === 'who5') {
             await AdminQuestionnaireService.insertWHO5Template(data.id, supabase);
+        } else if (payload.type === 'onboarding') {
+            await AdminQuestionnaireService.insertOnboardingTemplate(data.id, supabase);
         }
 
         return data.id;
@@ -100,6 +103,41 @@ export class AdminQuestionnaireService {
             }));
 
             await supabase.from('question_options').insert(optsToInsert);
+        }
+    }
+
+    /**
+     * Inserts the standard base questions for Onboarding.
+     * The first two questions are mandatory for user base profile extraction.
+     */
+    private static async insertOnboardingTemplate(questionnaireId: string, supabase: SupabaseClient<Database>) {
+        const questions = [
+            {
+                title: '¿Cuál es tu nombre?',
+                description: ONBOARDING_PROFILE_DESCRIPTIONS.NAME,
+                type: 'text'
+            },
+            {
+                title: '¿Cómo se llama la persona a la que cuidas?',
+                description: ONBOARDING_PROFILE_DESCRIPTIONS.CAREGIVING_FOR,
+                type: 'text'
+            }
+        ];
+
+        for (let i = 0; i < questions.length; i++) {
+            const { error: qErr } = await supabase
+                .from('questionnaire_questions')
+                .insert({
+                    questionnaire_id: questionnaireId,
+                    title: questions[i].title,
+                    description: questions[i].description,
+                    type: questions[i].type as any, // 'text'
+                    order_index: i
+                });
+
+            if (qErr) {
+                console.error('Error inserting Onboarding base question', qErr);
+            }
         }
     }
 

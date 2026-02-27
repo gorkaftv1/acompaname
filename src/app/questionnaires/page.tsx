@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { QuestionnaireService } from '@/lib/services/questionnaire.service';
 import { ResponseService } from '@/lib/services/response.service';
+import { OnboardingService } from '@/lib/services/onboarding.service';
 import PageLayout from '@/components/PageLayout';
 import { QuestionnaireListClient } from '@/components/questionnaires/QuestionnaireList.client';
 import type { QuestionnaireWithProgress, CompletedSessionWithDetails } from '@/types/questionnaire.types';
@@ -70,13 +71,14 @@ export default async function QuestionnairesPage() {
         });
     }
 
+    // Check if user has completed onboarding to hide it from lists
+    const userHasCompletedOnboarding = await OnboardingService.hasCompletedOnboarding(user.id, supabase);
+
     // 3. Process each questionnaire concurrently for active/in_progress
     await Promise.all(questionnaires.map(async (q: any) => {
         try {
-            // Load graph for progress calculation
-            const qMap = await QuestionnaireService.getQuestionsMap(q.id, supabase);
-
             // Calculate dynamic progress
+            const qMap = await QuestionnaireService.getQuestionsMap(q.id, supabase);
             const userProgress = await ResponseService.getUserProgress(user.id, q.id, qMap, supabase);
 
             const answeredCount = userProgress.answeredCount;
@@ -89,6 +91,13 @@ export default async function QuestionnairesPage() {
                 totalQuestions: totalEstimated,
                 isCompleted: !!isCompleted,
             };
+
+            // If it's an onboarding questionnaire and the user has already completed it,
+            // we skip showing it in Available or In Progress. 
+            // The completed instance is already shown via completedSessions logic above.
+            if (q.type === 'onboarding' && userHasCompletedOnboarding) {
+                return;
+            }
 
             if (!isCompleted && answeredCount > 0) {
                 inProgressList.push(item);

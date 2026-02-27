@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { QuestionnaireService } from '@/lib/services/questionnaire.service';
+import { OnboardingService } from '@/lib/services/onboarding.service';
 import { ResponseService } from '@/lib/services/response.service';
 import { ProfileService } from '@/lib/services/profile.service';
 import type {
@@ -44,7 +45,6 @@ import QuestionnaireLoadingScreen from '../questionnaires/QuestionnaireLoadingSc
 // Constantes
 // ---------------------------------------------------------------------------
 
-const QUESTIONNAIRE_TITLE = 'Onboarding — AcompañaMe';
 const DASHBOARD_ROUTE = '/dashboard';
 
 // ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ const DASHBOARD_ROUTE = '/dashboard';
 
 type Action =
     | { type: 'INIT_START' }
-    | { type: 'INIT_SUCCESS'; question: QuestionNode; answeredCount?: number }
+    | { type: 'INIT_SUCCESS'; question: QuestionNode; answeredCount?: number; answersMap?: Map<string, AnswerEntry> }
     | { type: 'INIT_ERROR'; message: string }
     | { type: 'SAVING_START' }
     | { type: 'ADVANCE'; nextQuestion: QuestionNode | null; answer: AnswerEntry }
@@ -73,6 +73,7 @@ function reducer(state: QuestionnaireEngineState, action: Action): Questionnaire
                 currentQuestion: action.question,
                 answeredCount: action.answeredCount ?? 0,
                 errorMessage: null,
+                answersMap: action.answersMap ?? new Map(),
             };
 
         case 'INIT_ERROR':
@@ -136,6 +137,7 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
     const router = useRouter();
     const [state, dispatch] = useReducer(reducer, initialState);
     const userId = useAuthStore((s) => s.user?.id);
+    const isLoadingAuth = useAuthStore((s) => s.isLoading);
 
     // ── Encontrar primera pregunta (para cálculos de progreso) ────────────
     const firstQuestion = useMemo(() => {
@@ -149,17 +151,62 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
         let mounted = true;
 
         async function initializeState() {
+            if (isLoadingAuth) return; // Esperar a que InitAuth termine
+
             dispatch({ type: 'INIT_START' });
             if (!firstQuestion) {
                 if (mounted) dispatch({ type: 'INIT_ERROR', message: 'No hay preguntas marcadas como primera.' });
                 return;
             }
 
+            // Si es Guest (no logueado)
             if (!userId) {
-                if (mounted) dispatch({ type: 'INIT_SUCCESS', question: firstQuestion, answeredCount: 0 });
+                const guestProgress = ResponseService.getGuestProgress();
+                if (guestProgress && guestProgress.questionnaireId === questionnaireId && guestProgress.responses.length > 0) {
+                    // Reconstruir estado para guest
+                    const tempAnswersMap = new Map<string, AnswerEntry>();
+                    for (const r of guestProgress.responses) {
+                        tempAnswersMap.set(r.questionId, {
+                            questionId: r.questionId,
+                            selectedOptionId: r.optionId,
+                            freeTextResponse: r.freeText,
+                        });
+                    }
+
+                    // Determinar siguiente pregunta
+                    const sortedQuestions = Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex);
+                    let currentQuestionId = firstQuestion.id;
+
+                    const sortedResponses = [...guestProgress.responses].sort((a, b) => {
+                        const qA = questionsMap.get(a.questionId);
+                        const qB = questionsMap.get(b.questionId);
+                        return (qB?.orderIndex ?? 0) - (qA?.orderIndex ?? 0);
+                    });
+
+                    const lastAnswer = sortedResponses[0];
+                    const furthestIndex = sortedQuestions.findIndex(q => q.id === lastAnswer.questionId);
+
+                    if (furthestIndex >= 0 && furthestIndex < sortedQuestions.length - 1) {
+                        currentQuestionId = sortedQuestions[furthestIndex + 1].id;
+                    } else {
+                        currentQuestionId = lastAnswer.questionId;
+                    }
+
+                    if (mounted) {
+                        dispatch({
+                            type: 'INIT_SUCCESS',
+                            question: questionsMap.get(currentQuestionId) ?? firstQuestion,
+                            answeredCount: guestProgress.responses.length,
+                            answersMap: tempAnswersMap
+                        });
+                    }
+                } else {
+                    if (mounted) dispatch({ type: 'INIT_SUCCESS', question: firstQuestion, answeredCount: 0 });
+                }
                 return;
             }
 
+            // Si el usuario está autenticado
             try {
                 const { isCompleted, currentQuestionId, answeredCount } = await ResponseService.getUserProgress(
                     userId, questionnaireId, questionsMap
@@ -192,7 +239,7 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
         initializeState();
 
         return () => { mounted = false; };
-    }, [firstQuestion, userId, questionnaireId, questionsMap]);
+    }, [firstQuestion, userId, isLoadingAuth, questionnaireId, questionsMap]);
 
     // ── Navegación al completar ──────────────────────────────────────────
 
@@ -228,25 +275,20 @@ function DynamicOnboardingEngine({ questionsMap, questionnaireId }: DynamicOnboa
                     freeText,
                 );
 
-                // ── Captura de nombres (Q1 y Q2) ───────────────────────
-                if (state.answeredCount === 0 && freeText) {
-                    dispatch({ type: 'SET_NAME', key: 'userName', value: freeText });
-                    if (!userId) {
-                        ResponseService.saveGuestName(questionnaireId, 'userName', freeText);
-                    } else {
-                        await ProfileService.updateProfile(userId, { name: freeText }).catch((e: unknown) =>
-                            logger.error('DynamicOnboarding', 'Error guardando nombre de usuario:', e),
-                        );
-                    }
-                } else if (state.answeredCount === 1 && freeText) {
-                    dispatch({ type: 'SET_NAME', key: 'caregivingName', value: freeText });
-                    if (!userId) {
-                        ResponseService.saveGuestName(questionnaireId, 'caregivingName', freeText);
-                    } else {
-                        await ProfileService.updateProfile(userId, { caregivingFor: freeText }).catch((e: unknown) =>
-                            logger.error('DynamicOnboarding', 'Error guardando nombre de acompañado:', e),
-                        );
-                    }
+                // ── Mapeo dinámico de datos de perfil ──────────────────────
+                const extractedProfileData = await OnboardingService.extractAndSaveProfileData(
+                    userId,
+                    questionnaireId,
+                    state.currentQuestion,
+                    option,
+                    freeText
+                );
+
+                if (extractedProfileData.userName) {
+                    dispatch({ type: 'SET_NAME', key: 'userName', value: extractedProfileData.userName });
+                }
+                if (extractedProfileData.caregivingName) {
+                    dispatch({ type: 'SET_NAME', key: 'caregivingName', value: extractedProfileData.caregivingName });
                 }
 
                 const answerEntry: AnswerEntry = {
@@ -482,7 +524,10 @@ export default function DynamicOnboarding() {
 
         async function preload() {
             try {
-                const data = await QuestionnaireService.getByTitle(QUESTIONNAIRE_TITLE);
+                const data = await OnboardingService.getPublishedOnboarding();
+                if (!data) {
+                    throw new Error('No hay un cuestionario de onboarding publicado.');
+                }
                 const map = await QuestionnaireService.getQuestionsMap(data.id);
                 if (!cancelled) {
                     setQuestionnaireId(data.id);

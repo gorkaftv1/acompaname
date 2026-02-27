@@ -29,6 +29,7 @@ interface QuestionCardProps {
     onDeleteOption: (questionId: string, optionId: string) => void;
     onMoveOptionUp: (questionId: string, optionIndex: number) => void;
     onMoveOptionDown: (questionId: string, optionIndex: number) => void;
+    isLockedBaseProfileQuestion?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ export default function QuestionCard({
     onDeleteOption,
     onMoveOptionUp,
     onMoveOptionDown,
+    isLockedBaseProfileQuestion = false,
 }: QuestionCardProps) {
     const [expanded, setExpanded] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -131,7 +133,7 @@ export default function QuestionCard({
             <div className="bg-[#F9FAFB] border-b border-[#E5E7EB] p-4">
                 <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 w-full">
-                        {isDraft && (
+                        {isDraft && !isLockedBaseProfileQuestion && (
                             <div className="flex flex-col gap-1 items-center justify-center border-r border-gray-200 pr-3 mt-1">
                                 <button
                                     onClick={() => onMoveUp(idx)}
@@ -184,13 +186,15 @@ export default function QuestionCard({
                                 >
                                     <Edit2 size={16} />
                                 </button>
-                                <button
-                                    onClick={() => onDeleteQuestion(q.id)}
-                                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Eliminar pregunta"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                {!isLockedBaseProfileQuestion && (
+                                    <button
+                                        onClick={() => onDeleteQuestion(q.id)}
+                                        className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Eliminar pregunta"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
                             </>
                         )}
                         <button
@@ -238,12 +242,12 @@ export default function QuestionCard({
                                     <input
                                         type="text"
                                         value={editForm.description || ''}
-                                        disabled={!isDraft || !isEditing}
+                                        disabled={!isDraft || !isEditing || isLockedBaseProfileQuestion}
                                         onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))}
                                         className={`w-full text-sm rounded-lg border px-3 py-2 transition-colors duration-200 ${hasChanged('description')
                                             ? 'border-amber-300 bg-amber-50/60 text-gray-700'
                                             : 'border-gray-300 bg-white'
-                                            } ${(!isDraft || !isEditing) && 'bg-gray-50 cursor-not-allowed text-gray-500'}`}
+                                            } ${(!isDraft || !isEditing || isLockedBaseProfileQuestion) && 'bg-gray-50 cursor-not-allowed text-gray-500'}`}
                                     />
                                 </div>
                                 <div>

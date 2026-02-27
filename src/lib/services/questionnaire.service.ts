@@ -14,7 +14,7 @@ type QuestionnaireRow = Database['public']['Tables']['questionnaires']['Row'];
 // Selección parcial usada en getQuestionsMap
 type QuestionSelect = Pick<
   QuestionRow,
-  'id' | 'questionnaire_id' | 'title' | 'type' | 'order_index' | 'show_if'
+  'id' | 'questionnaire_id' | 'title' | 'description' | 'type' | 'order_index' | 'show_if'
 >;
 type OptionSelect = Pick<OptionRow, 'id' | 'question_id' | 'text' | 'score'>;
 
@@ -213,7 +213,7 @@ export class QuestionnaireService {
     console.log('[QuestionnaireService][getQuestionsMap] Cargando preguntas', { questionnaireId });
     const { data: questions, error: qErr } = await supabase
       .from('questionnaire_questions')
-      .select('id, questionnaire_id, title, type, order_index, show_if')
+      .select('id, questionnaire_id, title, description, type, order_index, show_if')
       .eq('questionnaire_id', questionnaireId)
       .eq('is_deleted', false)
       .order('order_index')
@@ -264,6 +264,7 @@ export class QuestionnaireService {
         id: row.id,
         questionnaireId: row.questionnaire_id,
         questionText: row.title,
+        description: row.description,
         questionType: row.type as QuestionNode['questionType'],
         orderIndex: row.order_index,
         showIf: row.show_if,

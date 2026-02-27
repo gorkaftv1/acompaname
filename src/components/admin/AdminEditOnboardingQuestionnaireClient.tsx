@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ChevronLeft, Plus, AlertCircle, Archive, Globe } from 'lucide-react';
 import Link from 'next/link';
-import WHO5QuestionCard from '@/components/admin/WHO5QuestionCard';
+import QuestionCard from '@/components/admin/QuestionCard';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
+import { OnboardingService } from '@/lib/services/onboarding.service';
 import type { QuestionNode, OptionNode, QuestionnaireData } from '@/types/admin.types';
 
 // ─── Main Component ────────────────────────────────────────────────────────
-export default function AdminEditWHO5QuestionnaireClient({ initialData }: { initialData: QuestionnaireData }) {
+export default function AdminEditOnboardingQuestionnaireClient({ initialData }: { initialData: QuestionnaireData }) {
     const router = useRouter();
     const supabase = createBrowserClient();
 
@@ -45,6 +46,31 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
     // ─── Status Actions ─────────────────────────────────────────────────────
     const handlePublish = async () => {
         if (!isEditable) return;
+
+        if (data.type === 'onboarding') {
+            confirm({
+                title: 'Publicar cuestionario de Onboarding',
+                message: 'Al publicar este cuestionario de onboarding, reemplazará al actual. El cuestionario de onboarding que estaba publicado previamente será archivado de forma automática y ya no será visible para los nuevos usuarios. ¿Continuar?',
+                variant: 'danger',
+                confirmLabel: 'Publicar y Reemplazar',
+                action: async () => {
+                    setIsSaving(true);
+                    setError(null);
+                    try {
+                        await OnboardingService.publishOnboarding(data.id, supabase);
+                        setData(prev => ({ ...prev, status: 'published' }));
+                        setSuccessMsg('Cuestionario de onboarding publicado correctamente (el anterior ha sido archivado).');
+                    } catch (err: any) {
+                        console.error('Error publishing onboarding:', err);
+                        setError(err.message || 'Error al publicar onboarding.');
+                    } finally {
+                        setIsSaving(false);
+                    }
+                },
+            });
+            return;
+        }
+
         confirm({
             title: 'Publicar cuestionario',
             message: 'Al publicar el cuestionario se hará visible a los usuarios y NO se podrá modificar más. ¿Continuar?',
@@ -103,20 +129,39 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
     };
 
     // ─── Question Logic ──────────────────────────────────────────────────────
-    // Omit add question
+    const handleAddQuestion = async () => {
+        if (!isEditable) return;
+        const currentIndex = data.questionnaire_questions.length > 0
+            ? Math.max(...data.questionnaire_questions.map(q => q.order_index)) + 1
+            : 0;
+
+        try {
+            const newNode = await AdminQuestionnaireService.addQuestion(data.id, currentIndex, supabase);
+
+            setData(prev => ({
+                ...prev,
+                questionnaire_questions: [...prev.questionnaire_questions, newNode].sort((a, b) => a.order_index - b.order_index)
+            }));
+            setEditingQuestionId(newNode.id);
+            console.log('Pregunta añadida:', newNode);
+        } catch (err) {
+            console.error(err);
+            setError('Error al añadir pregunta.');
+        }
+    };
 
     const handleUpdateQuestion = async (qId: string, updates: Partial<QuestionNode>) => {
         if (!isEditable) return;
-        console.log('[AdminEditWHO5QuestionnaireClient] handleUpdateQuestion triggered for qId:', qId, 'with updates:', updates);
+        console.log('[AdminEditQuestionnaireClient] handleUpdateQuestion triggered for qId:', qId, 'with updates:', updates);
         try {
             const payload = { ...updates };
             if (payload.show_if && typeof payload.show_if === 'object') {
                 payload.show_if = JSON.stringify(payload.show_if);
             }
-            console.log('[AdminEditWHO5QuestionnaireClient] Prepared payload to send to Service:', payload);
+            console.log('[AdminEditQuestionnaireClient] Prepared payload to send to Service:', payload);
 
             await AdminQuestionnaireService.updateQuestion(qId, payload, supabase);
-            console.log('[AdminEditWHO5QuestionnaireClient] Service update successful');
+            console.log('[AdminEditQuestionnaireClient] Service update successful');
 
             // Revert strict JSON conversion back for React State holding object
             if (updates.show_if && typeof updates.show_if === 'string') {
@@ -127,18 +172,55 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
                 ...prev,
                 questionnaire_questions: prev.questionnaire_questions.map(q => q.id === qId ? { ...q, ...payload } as QuestionNode : q)
             }));
-            console.log('[AdminEditWHO5QuestionnaireClient] Local state updated');
+            console.log('[AdminEditQuestionnaireClient] Local state updated');
             // Note: do NOT close the edit panel here — closing is always explicit via onCancelEdit
         } catch (err: any) {
-            console.error('[AdminEditWHO5QuestionnaireClient] handleUpdateQuestion error:', err);
+            console.error('[AdminEditQuestionnaireClient] handleUpdateQuestion error:', err);
             setError(err.message || 'Error al actualizar pregunta. Verifica el formato JSON.');
             throw err;
         }
     };
 
+    const handleDeleteQuestion = async (qId: string) => {
+        if (!isEditable) return;
+
+        // Proteger las 2 primeras preguntas
+        const qIndex = data.questionnaire_questions.findIndex(q => q.id === qId);
+        if (qIndex !== -1 && data.questionnaire_questions[qIndex].order_index < 2) {
+            setError('Las preguntas base protegidas no se pueden eliminar.');
+            return;
+        }
+
+        confirm({
+            title: 'Eliminar pregunta',
+            message: '¿Estás seguro de que quieres eliminar esta pregunta? Esta acción no se puede deshacer.',
+            variant: 'danger',
+            confirmLabel: 'Eliminar',
+            action: async () => {
+                try {
+                    await AdminQuestionnaireService.deleteQuestion(qId, supabase);
+                    setData(prev => ({
+                        ...prev,
+                        questionnaire_questions: prev.questionnaire_questions.filter(q => q.id !== qId)
+                    }));
+                } catch (err) {
+                    console.error(err);
+                    setError('Error al eliminar pregunta.');
+                }
+            },
+        });
+    };
+
     const handleReorderQuestion = async (index: number, direction: 'up' | 'down') => {
         if (!isEditable) return;
         const sorted = [...data.questionnaire_questions].sort((a, b) => a.order_index - b.order_index);
+
+        // Reglas de Onboarding: la pregunta 0 y 1 NO se pueden mover.
+        if (index === 0 || index === 1) return;
+
+        // La pregunta en índice 2 no puede subir para invadir el índice 1
+        if (direction === 'up' && index === 2) return;
+
         if (direction === 'up' && index === 0) return;
         if (direction === 'down' && index === sorted.length - 1) return;
 
@@ -165,12 +247,37 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
         }
     };
 
-    // Omit delete question
-
-    // Omit reorder
-
     // ─── Options Logic ───────────────────────────────────────────────────────
-    // Omit add option
+    const handleAddOption = async (qId: string) => {
+        if (!isEditable) return;
+        const currentQ = data.questionnaire_questions.find(q => q.id === qId);
+        if (!currentQ) return;
+
+        const currentIndex = currentQ.question_options.length > 0
+            ? Math.max(...currentQ.question_options.map(o => o.order_index)) + 1
+            : 0;
+
+        try {
+            const newOpt = await AdminQuestionnaireService.addOption(
+                qId,
+                currentIndex,
+                data.type === 'onboarding',
+                supabase
+            );
+
+            setData(prev => ({
+                ...prev,
+                questionnaire_questions: prev.questionnaire_questions.map(q =>
+                    q.id === qId
+                        ? { ...q, question_options: [...q.question_options, newOpt].sort((a, b) => a.order_index - b.order_index) }
+                        : q
+                )
+            }));
+        } catch (err) {
+            console.error(err);
+            setError('Error al añadir opción.');
+        }
+    };
 
     const handleUpdateOption = async (qId: string, optId: string, updates: Partial<OptionNode>) => {
         if (!isEditable) return;
@@ -192,6 +299,32 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
             console.error(err);
             setError('Error al actualizar opción.');
         }
+    };
+
+    const handleDeleteOption = async (qId: string, optId: string) => {
+        if (!isEditable) return;
+        confirm({
+            title: 'Eliminar opción',
+            message: '¿Estás seguro de que quieres eliminar esta opción?',
+            variant: 'danger',
+            confirmLabel: 'Eliminar',
+            action: async () => {
+                try {
+                    await AdminQuestionnaireService.deleteOption(optId, supabase);
+                    setData(prev => ({
+                        ...prev,
+                        questionnaire_questions: prev.questionnaire_questions.map(q =>
+                            q.id === qId
+                                ? { ...q, question_options: q.question_options.filter(o => o.id !== optId) }
+                                : q
+                        )
+                    }));
+                } catch (err) {
+                    console.error(err);
+                    setError('Error al eliminar opción.');
+                }
+            },
+        });
     };
 
     const handleReorderOption = async (qId: string, optIndex: number, direction: 'up' | 'down') => {
@@ -229,9 +362,6 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
             setError('Error al reordenar opción.');
         }
     };
-
-    // Omit delete option
-    // Omit reorder option
 
     return (
         <>
@@ -275,7 +405,6 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
                                 {isPublished && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold uppercase">Publicado</span>}
                                 {isArchived && <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold uppercase">Archivado</span>}
                                 {data.type === 'onboarding' && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold uppercase">Onboarding</span>}
-                                {data.type === 'who5' && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold uppercase">WHO-5</span>}
                             </div>
                             <h1 className="text-2xl font-bold text-[#1A1A1A]">Modificar Cuestionario</h1>
                         </div>
@@ -352,7 +481,6 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
                         >
                             <option value="standard">Estándar</option>
                             <option value="onboarding">Onboarding (Primer uso)</option>
-                            <option value="who5">WHO-5 (Bienestar)</option>
                         </select>
                     </div>
                 </div>
@@ -362,7 +490,7 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
                     <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Preguntas ({data.questionnaire_questions.length})</h2>
 
                     {data.questionnaire_questions.map((q, idx) => (
-                        <WHO5QuestionCard
+                        <QuestionCard
                             key={q.id}
                             question={q}
                             index={idx}
@@ -373,15 +501,16 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
                             previousQuestions={data.questionnaire_questions.filter(
                                 pq => pq.order_index < q.order_index
                             )}
+                            isLockedBaseProfileQuestion={idx < 2}
                             onEdit={(id) => setEditingQuestionId(id)}
                             onCancelEdit={() => setEditingQuestionId(null)}
                             onSaveQuestion={handleUpdateQuestion}
-                            onDeleteQuestion={() => { }}
+                            onDeleteQuestion={handleDeleteQuestion}
                             onMoveUp={(i) => handleReorderQuestion(i, 'up')}
                             onMoveDown={(i) => handleReorderQuestion(i, 'down')}
-                            onAddOption={() => { }}
+                            onAddOption={handleAddOption}
                             onUpdateOption={(qId, optId, updates) => handleUpdateOption(qId, optId, updates)}
-                            onDeleteOption={() => { }}
+                            onDeleteOption={handleDeleteOption}
                             onMoveOptionUp={(qId, oIdx) => handleReorderOption(qId, oIdx, 'up')}
                             onMoveOptionDown={(qId, oIdx) => handleReorderOption(qId, oIdx, 'down')}
                         />
@@ -394,7 +523,15 @@ export default function AdminEditWHO5QuestionnaireClient({ initialData }: { init
                         </div>
                     )}
 
-                    {/* WHO-5 forms cannot add structured questions manually */}
+                    {isEditable && (
+                        <button
+                            onClick={handleAddQuestion}
+                            className="w-full mt-4 py-4 border-2 border-dashed border-[#D1D5DB] rounded-xl flex items-center justify-center gap-2 text-[#6B7280] font-medium hover:bg-gray-50 hover:text-[#1A1A1A] hover:border-gray-400 transition-all"
+                        >
+                            <Plus size={18} />
+                            Añadir nueva pregunta al final
+                        </button>
+                    )}
                 </div>
             </div>
 

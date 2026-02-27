@@ -27,6 +27,7 @@ export interface QuestionNode {
     id: string;
     questionnaireId: string;
     questionText: string;
+    description: string | null;
     questionType: QuestionType;
     orderIndex: number;
     showIf: any | null; // JSONB representation

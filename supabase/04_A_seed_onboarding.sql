@@ -137,10 +137,10 @@ BEGIN
   -- ── FASE 1: IDENTIDAD ────────────────────────────────────────────────────────
   (P1,  q_id,  1,
     '¿Cómo te llamas?',
-    NULL, 'text', NULL),
+    'Usaremos este nombre para personalizar tus notificaciones y mensajes.', 'text', NULL),
   (P2,  q_id,  2,
     '¿{{Y}} cómo llamamos a quien estás ayudando por aquí?',
-    'Nombre o apodo, como te salga natural.', 'text', NULL),
+    'Puede ser el nombre de la persona o un apodo. Esto nos ayuda a contextualizar las tareas.', 'text', NULL),
   (P3,  q_id,  3,
     '¿Cuál es tu situación ahora mismo {{Y}}?',
     NULL, 'single_choice', NULL),
@@ -174,7 +174,7 @@ BEGIN
   -- ── FASE 2: EL VÍNCULO ──────────────────────────────────────────────────────
   (P10, q_id, 10,
     '¿Qué es esta {{X}} para ti?',
-    NULL, 'single_choice', NULL),
+    'Nos gustaría saber que relación tienes con {{X}}', 'single_choice', NULL),
   -- ── RAMA LABORAL ─────────────────────────────────────────────────────────────
   (P11, q_id, 11,
     'En el curro: ¿cómo va la cosa con {{X}}?',
