@@ -52,50 +52,23 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
+        getAll() {
+          return request.cookies.getAll()
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // Actualizar cookies en el request para que estén disponibles
-          // en el resto del procesamiento
-          request.cookies.set({
-            name,
-            value,
-            ...options,
+        setAll(cookiesToSet) {
+          // Actualizar las cookies en la request antes de crear la response
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value)
           })
-          
-          // Crear un nuevo response con las cookies actualizadas
+
+          // Crear la respuesta con la request actualizada
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request,
           })
-          
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          // Remover del request
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          
-          // Remover del response
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
+
+          // Establecer las cookies en la response
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
           })
         },
       },

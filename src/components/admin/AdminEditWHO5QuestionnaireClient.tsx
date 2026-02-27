@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ChevronLeft, Plus, AlertCircle, Archive, Globe } from 'lucide-react';
 import Link from 'next/link';
-import QuestionCard from '@/components/admin/QuestionCard';
+import WHO5QuestionCard from '@/components/admin/WHO5QuestionCard';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
 import type { QuestionNode, OptionNode, QuestionnaireData } from '@/types/admin.types';
 
 // ─── Main Component ────────────────────────────────────────────────────────
-export default function AdminEditQuestionnaireClient({ initialData }: { initialData: QuestionnaireData }) {
+export default function AdminEditWHO5QuestionnaireClient({ initialData }: { initialData: QuestionnaireData }) {
     const router = useRouter();
     const supabase = createBrowserClient();
 
@@ -102,39 +102,20 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
     };
 
     // ─── Question Logic ──────────────────────────────────────────────────────
-    const handleAddQuestion = async () => {
-        if (!isDraft) return;
-        const currentIndex = data.questionnaire_questions.length > 0
-            ? Math.max(...data.questionnaire_questions.map(q => q.order_index)) + 1
-            : 0;
-
-        try {
-            const newNode = await AdminQuestionnaireService.addQuestion(data.id, currentIndex, supabase);
-
-            setData(prev => ({
-                ...prev,
-                questionnaire_questions: [...prev.questionnaire_questions, newNode].sort((a, b) => a.order_index - b.order_index)
-            }));
-            setEditingQuestionId(newNode.id);
-            console.log('Pregunta añadida:', newNode);
-        } catch (err) {
-            console.error(err);
-            setError('Error al añadir pregunta.');
-        }
-    };
+    // Omit add question
 
     const handleUpdateQuestion = async (qId: string, updates: Partial<QuestionNode>) => {
         if (!isDraft) return;
-        console.log('[AdminEditQuestionnaireClient] handleUpdateQuestion triggered for qId:', qId, 'with updates:', updates);
+        console.log('[AdminEditWHO5QuestionnaireClient] handleUpdateQuestion triggered for qId:', qId, 'with updates:', updates);
         try {
             const payload = { ...updates };
             if (payload.show_if && typeof payload.show_if === 'object') {
                 payload.show_if = JSON.stringify(payload.show_if);
             }
-            console.log('[AdminEditQuestionnaireClient] Prepared payload to send to Service:', payload);
+            console.log('[AdminEditWHO5QuestionnaireClient] Prepared payload to send to Service:', payload);
 
             await AdminQuestionnaireService.updateQuestion(qId, payload, supabase);
-            console.log('[AdminEditQuestionnaireClient] Service update successful');
+            console.log('[AdminEditWHO5QuestionnaireClient] Service update successful');
 
             // Revert strict JSON conversion back for React State holding object
             if (updates.show_if && typeof updates.show_if === 'string') {
@@ -145,35 +126,13 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                 ...prev,
                 questionnaire_questions: prev.questionnaire_questions.map(q => q.id === qId ? { ...q, ...payload } as QuestionNode : q)
             }));
-            console.log('[AdminEditQuestionnaireClient] Local state updated');
+            console.log('[AdminEditWHO5QuestionnaireClient] Local state updated');
             // Note: do NOT close the edit panel here — closing is always explicit via onCancelEdit
         } catch (err: any) {
-            console.error('[AdminEditQuestionnaireClient] handleUpdateQuestion error:', err);
+            console.error('[AdminEditWHO5QuestionnaireClient] handleUpdateQuestion error:', err);
             setError(err.message || 'Error al actualizar pregunta. Verifica el formato JSON.');
             throw err;
         }
-    };
-
-    const handleDeleteQuestion = async (qId: string) => {
-        if (!isDraft) return;
-        confirm({
-            title: 'Eliminar pregunta',
-            message: '¿Estás seguro de que quieres eliminar esta pregunta? Esta acción no se puede deshacer.',
-            variant: 'danger',
-            confirmLabel: 'Eliminar',
-            action: async () => {
-                try {
-                    await AdminQuestionnaireService.deleteQuestion(qId, supabase);
-                    setData(prev => ({
-                        ...prev,
-                        questionnaire_questions: prev.questionnaire_questions.filter(q => q.id !== qId)
-                    }));
-                } catch (err) {
-                    console.error(err);
-                    setError('Error al eliminar pregunta.');
-                }
-            },
-        });
     };
 
     const handleReorderQuestion = async (index: number, direction: 'up' | 'down') => {
@@ -205,37 +164,12 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
         }
     };
 
+    // Omit delete question
+
+    // Omit reorder
+
     // ─── Options Logic ───────────────────────────────────────────────────────
-    const handleAddOption = async (qId: string) => {
-        if (!isDraft) return;
-        const currentQ = data.questionnaire_questions.find(q => q.id === qId);
-        if (!currentQ) return;
-
-        const currentIndex = currentQ.question_options.length > 0
-            ? Math.max(...currentQ.question_options.map(o => o.order_index)) + 1
-            : 0;
-
-        try {
-            const newOpt = await AdminQuestionnaireService.addOption(
-                qId,
-                currentIndex,
-                data.type === 'onboarding',
-                supabase
-            );
-
-            setData(prev => ({
-                ...prev,
-                questionnaire_questions: prev.questionnaire_questions.map(q =>
-                    q.id === qId
-                        ? { ...q, question_options: [...q.question_options, newOpt].sort((a, b) => a.order_index - b.order_index) }
-                        : q
-                )
-            }));
-        } catch (err) {
-            console.error(err);
-            setError('Error al añadir opción.');
-        }
-    };
+    // Omit add option
 
     const handleUpdateOption = async (qId: string, optId: string, updates: Partial<OptionNode>) => {
         if (!isDraft) return;
@@ -257,32 +191,6 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
             console.error(err);
             setError('Error al actualizar opción.');
         }
-    };
-
-    const handleDeleteOption = async (qId: string, optId: string) => {
-        if (!isDraft) return;
-        confirm({
-            title: 'Eliminar opción',
-            message: '¿Estás seguro de que quieres eliminar esta opción?',
-            variant: 'danger',
-            confirmLabel: 'Eliminar',
-            action: async () => {
-                try {
-                    await AdminQuestionnaireService.deleteOption(optId, supabase);
-                    setData(prev => ({
-                        ...prev,
-                        questionnaire_questions: prev.questionnaire_questions.map(q =>
-                            q.id === qId
-                                ? { ...q, question_options: q.question_options.filter(o => o.id !== optId) }
-                                : q
-                        )
-                    }));
-                } catch (err) {
-                    console.error(err);
-                    setError('Error al eliminar opción.');
-                }
-            },
-        });
     };
 
     const handleReorderOption = async (qId: string, optIndex: number, direction: 'up' | 'down') => {
@@ -320,6 +228,9 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
             setError('Error al reordenar opción.');
         }
     };
+
+    // Omit delete option
+    // Omit reorder option
 
     return (
         <>
@@ -363,6 +274,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                                 {isPublished && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold uppercase">Publicado</span>}
                                 {isArchived && <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold uppercase">Archivado</span>}
                                 {data.type === 'onboarding' && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold uppercase">Onboarding</span>}
+                                {data.type === 'who5' && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold uppercase">WHO-5</span>}
                             </div>
                             <h1 className="text-2xl font-bold text-[#1A1A1A]">Modificar Cuestionario</h1>
                         </div>
@@ -439,6 +351,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                         >
                             <option value="standard">Estándar</option>
                             <option value="onboarding">Onboarding (Primer uso)</option>
+                            <option value="who5">WHO-5 (Bienestar)</option>
                         </select>
                     </div>
                 </div>
@@ -448,7 +361,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                     <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Preguntas ({data.questionnaire_questions.length})</h2>
 
                     {data.questionnaire_questions.map((q, idx) => (
-                        <QuestionCard
+                        <WHO5QuestionCard
                             key={q.id}
                             question={q}
                             index={idx}
@@ -462,12 +375,12 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                             onEdit={(id) => setEditingQuestionId(id)}
                             onCancelEdit={() => setEditingQuestionId(null)}
                             onSaveQuestion={handleUpdateQuestion}
-                            onDeleteQuestion={handleDeleteQuestion}
+                            onDeleteQuestion={() => { }}
                             onMoveUp={(i) => handleReorderQuestion(i, 'up')}
                             onMoveDown={(i) => handleReorderQuestion(i, 'down')}
-                            onAddOption={handleAddOption}
+                            onAddOption={() => { }}
                             onUpdateOption={(qId, optId, updates) => handleUpdateOption(qId, optId, updates)}
-                            onDeleteOption={handleDeleteOption}
+                            onDeleteOption={() => { }}
                             onMoveOptionUp={(qId, oIdx) => handleReorderOption(qId, oIdx, 'up')}
                             onMoveOptionDown={(qId, oIdx) => handleReorderOption(qId, oIdx, 'down')}
                         />
@@ -480,15 +393,7 @@ export default function AdminEditQuestionnaireClient({ initialData }: { initialD
                         </div>
                     )}
 
-                    {isDraft && (
-                        <button
-                            onClick={handleAddQuestion}
-                            className="w-full mt-4 py-4 border-2 border-dashed border-[#D1D5DB] rounded-xl flex items-center justify-center gap-2 text-[#6B7280] font-medium hover:bg-gray-50 hover:text-[#1A1A1A] hover:border-gray-400 transition-all"
-                        >
-                            <Plus size={18} />
-                            Añadir nueva pregunta al final
-                        </button>
-                    )}
+                    {/* WHO-5 forms cannot add structured questions manually */}
                 </div>
             </div>
 

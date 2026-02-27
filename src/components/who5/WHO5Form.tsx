@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engine.types';
+import type { QuestionNode, OptionNode } from '@/types/questionnaire-engine.types';
 import WHO5QuestionCard from './WHO5QuestionCard';
 
 // ---------------------------------------------------------------------------
@@ -12,6 +12,8 @@ import WHO5QuestionCard from './WHO5QuestionCard';
 interface WHO5FormProps {
   questions: QuestionNode[];
   options: OptionNode[];
+  title?: string;
+  description?: string;
   onComplete: (answers: Record<string, number>) => void;
   isSaving?: boolean;
 }
@@ -55,11 +57,13 @@ const ScaleLegend: React.FC<{ options: OptionNode[] }> = ({ options }) => {
 // Main component
 // ---------------------------------------------------------------------------
 
-const WHO5Form: React.FC<WHO5FormProps> = ({ questions, options, onComplete, isSaving }) => {
+const WHO5Form: React.FC<WHO5FormProps> = ({ questions, options, title, description, onComplete, isSaving }) => {
   // selectedOptionIds: questionId → optionId
   const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string>>({});
   const [showErrors, setShowErrors] = useState(false);
   const firstUnansweredRef = useRef<string | null>(null);
+
+  console.log('WHO5Form', { questions, options, title, description, onComplete, isSaving });
 
   const handleSelect = (questionId: string, optionId: string) => {
     setSelectedOptionIds((prev) => ({ ...prev, [questionId]: optionId }));
@@ -108,10 +112,10 @@ const WHO5Form: React.FC<WHO5FormProps> = ({ questions, options, onComplete, isS
           Bienestar
         </p>
         <h1 className="mb-2 text-2xl font-semibold text-[#1A1A1A]">
-          WHO-5 — Índice de Bienestar
+          {title || 'WHO-5 — Índice de Bienestar'}
         </h1>
         <p className="mx-auto max-w-4xl text-sm leading-relaxed text-[#6B7280]">
-          Por favor, indica para cada una de las siguientes afirmaciones cuál se acerca más a cómo te has sentido durante las últimas dos semanas.
+          {description || 'Por favor, indica para cada una de las siguientes afirmaciones cuál se acerca más a cómo te has sentido durante las últimas dos semanas.'}
         </p>
       </motion.div>
 

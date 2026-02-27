@@ -2,9 +2,9 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { logger } from '@/lib/utils/logger';
 import { sanitizeString } from '@/lib/utils/sanitize';
 import { getLinearProgress, type LinearProgress } from '@/lib/utils/graph-progress';
-import { QuestionnaireService } from './questionnaire.service';
-import type { QuestionNode } from '@/lib/services/questionnaire-engine.types';
-import { ProfileService } from './profile.service';
+import { QuestionnaireService } from '@/lib/services/questionnaire.service';
+import type { QuestionNode } from '@/types/questionnaire-engine.types';
+import { ProfileService } from '@/lib/services/profile.service';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
 
@@ -71,13 +71,18 @@ export class ResponseService {
 
         console.log('[ResponseService][getOrCreateActiveSession] Buscando sesión', { userId, questionnaireId });
         // Buscar sesión activa
-        const { data: session } = await supabase
+        const { data: session, error: selectError } = await supabase
             .from('questionnaire_sessions')
             .select('id')
             .eq('user_id', userId)
             .eq('questionnaire_id', questionnaireId)
             .eq('status', 'in_progress')
             .maybeSingle();
+
+        if (selectError) {
+            console.error('[ResponseService][getOrCreateActiveSession] Error buscando sesión', { error: selectError, userId, questionnaireId });
+            throw new Error(`ResponseService.getOrCreateActiveSession: ${selectError.message}`);
+        }
 
         if (session) {
             console.log('[ResponseService][getOrCreateActiveSession] Sesión encontrada', { sessionId: session.id });

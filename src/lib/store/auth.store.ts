@@ -3,7 +3,7 @@ import { createBrowserClient, resetSupabaseClient } from '@/lib/supabase/client'
 import { User } from '@/types';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { logger } from '@/lib/utils/logger';
-import { ResponseService } from '@/services/response.service';
+import { ResponseService } from '@/lib/services/response.service';
 
 /**
  * Authentication Store

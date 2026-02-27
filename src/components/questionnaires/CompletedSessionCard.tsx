@@ -19,7 +19,11 @@ export function CompletedSessionCard({
     onViewResponses,
     resolvePlaceholders,
 }: CompletedSessionCardProps) {
-    const formattedDate = new Date(session.completedAt).toLocaleDateString();
+    const formattedDate = new Date(session.completedAt).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
     const relativeTime = getRelativeTime(new Date(session.completedAt));
 
     const displayTitle = !session.isOnboarding

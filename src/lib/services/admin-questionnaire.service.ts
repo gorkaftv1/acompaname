@@ -47,7 +47,60 @@ export class AdminQuestionnaireService {
             throw new Error(error?.message || 'Error al crear el cuestionario.');
         }
 
+        if (payload.type === 'who5') {
+            await AdminQuestionnaireService.insertWHO5Template(data.id, supabase);
+        }
+
         return data.id;
+    }
+
+    /**
+     * Inserts the standard WHO-5 questions and options.
+     */
+    private static async insertWHO5Template(questionnaireId: string, supabase: SupabaseClient<Database>) {
+        const questions = [
+            'Me he sentido alegre y de buen humor.',
+            'Me he sentido tranquilo/a y relajado/a.',
+            'Me he sentido activo/a y con energía.',
+            'Me he despertado sintiéndome fresco/a y descansado/a.',
+            'Mi vida cotidiana ha estado llena de cosas que me interesan.'
+        ];
+
+        const options = [
+            { text: 'Todo el tiempo', score: 5 },
+            { text: 'La mayor parte del tiempo', score: 4 },
+            { text: 'Más de la mitad del tiempo', score: 3 },
+            { text: 'Menos de la mitad del tiempo', score: 2 },
+            { text: 'Alguna vez', score: 1 },
+            { text: 'En ningún momento', score: 0 }
+        ];
+
+        for (let i = 0; i < questions.length; i++) {
+            const { data: qData, error: qErr } = await supabase
+                .from('questionnaire_questions')
+                .insert({
+                    questionnaire_id: questionnaireId,
+                    title: questions[i],
+                    type: 'single_choice',
+                    order_index: i
+                })
+                .select('id')
+                .single();
+
+            if (qErr || !qData) {
+                console.error('Error inserting WHO5 question', qErr);
+                continue;
+            }
+
+            const optsToInsert = options.map((opt, idx) => ({
+                question_id: qData.id,
+                text: opt.text,
+                score: opt.score,
+                order_index: idx
+            }));
+
+            await supabase.from('question_options').insert(optsToInsert);
+        }
     }
 
     /**
@@ -175,12 +228,17 @@ export class AdminQuestionnaireService {
         updates: Partial<QuestionNode>,
         supabase: SupabaseClient<Database>
     ): Promise<void> {
+        console.log('[AdminQuestionnaireService] updateQuestion called for qId:', questionId, 'with raw updates:', updates);
         const payload = { ...updates };
         if (payload.show_if && typeof payload.show_if === 'string') {
             payload.show_if = JSON.parse(payload.show_if);
         }
+        console.log('[AdminQuestionnaireService] updateQuestion parsed payload for Supabase:', payload);
 
-        const { error } = await supabase.from('questionnaire_questions').update(payload as any).eq('id', questionId);
+        const { data, error } = await supabase.from('questionnaire_questions').update(payload as any).eq('id', questionId).select();
+
+        console.log('[AdminQuestionnaireService] Supabase update response data:', data, 'error:', error);
+
         if (error) throw new Error(error.message || 'Error al actualizar pregunta.');
     }
 

@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PageLayout from '@/components/PageLayout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import WHO5Form from '@/components/who5/WHO5Form';
 import WHO5Results from '@/components/who5/WHO5Results';
-import { WHO5Result, WHO5_DB_QUESTIONNAIRE_ID } from '@/lib/who5/who5.config';
+import type { WHO5Result } from '@/types/who5.types';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { QuestionnaireService } from '@/services/questionnaire.service';
-import { WHO5Service } from '@/services/who5.service';
-import QuestionnaireLoadingScreen from '@/components/onboarding/QuestionnaireLoadingScreen';
-import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engine.types';
+import { QuestionnaireService } from '@/lib/services/questionnaire.service';
+import { WHO5Service } from '@/lib/services/who5.service';
+import QuestionnaireLoadingScreen from '@/components/questionnaires/QuestionnaireLoadingScreen';
+import type { QuestionNode, OptionNode } from '@/types/questionnaire-engine.types';
 
 /**
  * WHO-5 Page
@@ -20,12 +20,17 @@ import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engi
  *   1. Form  — user answers all 5 WHO-5 questions
  *   2. Result — animated blob result screen
  */
-export default function WHO5Page() {
+export default function WHO5Page({ params }: { params: Promise<{ id: string }> }) {
+  const unwrappedParams = use(params);
+  const idFromParams = unwrappedParams.id;
   const [phase, setPhase] = useState<'form' | 'result'>('form');
   const [result, setResult] = useState<WHO5Result | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [questions, setQuestions] = useState<QuestionNode[]>([]);
   const [options, setOptions] = useState<OptionNode[]>([]);
+  const [questionnaireId, setQuestionnaireId] = useState<string | null>(null);
+  const [questionnaireTitle, setQuestionnaireTitle] = useState<string>('');
+  const [questionnaireDesc, setQuestionnaireDesc] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,15 +38,20 @@ export default function WHO5Page() {
 
   React.useEffect(() => {
     async function loadWHO5Data() {
+      if (!idFromParams) return;
       try {
-        const questionnaire = await QuestionnaireService.getById(WHO5_DB_QUESTIONNAIRE_ID);
+        const questionnaire = await QuestionnaireService.getById(idFromParams);
         if (!questionnaire) throw new Error('WHO-5 questionnaire not found.');
+        console.log('WHO-5 questionnaire loaded:', questionnaire.title);
 
         // Extract and sort questions by orderIndex
         const questionNodes = Array.from(questionnaire.questionsMap.values()).sort(
           (a: QuestionNode, b: QuestionNode) => a.orderIndex - b.orderIndex
         );
         setQuestions(questionNodes);
+        setQuestionnaireId(questionnaire.id);
+        setQuestionnaireTitle(questionnaire.title);
+        setQuestionnaireDesc(questionnaire.description || '');
 
         // Gather all distinct options (usually WHO-5 has a standard set across all questions)
         // Since the UI visualizes them consistently, pick from the first question
@@ -56,8 +66,10 @@ export default function WHO5Page() {
       }
     }
 
-    loadWHO5Data();
-  }, []);
+    if (idFromParams) {
+      loadWHO5Data();
+    }
+  }, [idFromParams]);
 
   const handleFormComplete = async (answers: Record<string, number>) => {
     if (!user) {
@@ -69,7 +81,11 @@ export default function WHO5Page() {
     setError(null);
 
     try {
-      const computedResult = await WHO5Service.saveAnswers(user.id, answers, questions, options);
+      if (!questionnaireId) {
+        throw new Error('Questionnaire ID not initialized');
+      }
+
+      const computedResult = await WHO5Service.saveAnswers(user.id, questionnaireId, answers, questions, options);
 
       // Update UI
       setResult(computedResult);
@@ -129,6 +145,8 @@ export default function WHO5Page() {
                 <WHO5Form
                   questions={questions}
                   options={options}
+                  title={questionnaireTitle}
+                  description={questionnaireDesc}
                   onComplete={handleFormComplete}
                   isSaving={isSaving}
                 />

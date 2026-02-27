@@ -115,7 +115,7 @@ export default function AdminCreateQuestionnaireClient({ userId }: { userId: str
                     {/* Type selection */}
                     <div className="flex flex-col gap-2 bg-[#F9FAFB] p-4 rounded-xl border border-[#F3F4F6]">
                         <label htmlFor="questionnaireType" className="text-sm font-medium text-[#1A1A1A]">
-                            Tipo de Cuestionario                            ¿Es un cuestionario de Onboarding? (Primer uso)
+                            Tipo de Cuestionario
                         </label>
                         <select
                             id="questionnaireType"

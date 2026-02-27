@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { QuestionnaireCompleteClient } from '@/components/questionnaires/QuestionnaireCompleteClient';
-import { ResponseService } from '@/services/response.service';
+import { ResponseService } from '@/lib/services/response.service';
 import type { CompletedSessionDetails } from '@/types/questionnaire.types';
 
 export default async function QuestionnaireCompletePage({

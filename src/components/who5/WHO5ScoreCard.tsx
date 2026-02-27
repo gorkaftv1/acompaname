@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import type { WHO5Result } from '@/lib/who5/who5.config';
+import type { WHO5Result } from '@/types/who5.types';
 
 // ---------------------------------------------------------------------------
 // Score ring — circular arc that fills proportionally to the score

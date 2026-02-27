@@ -32,7 +32,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store/auth.store';
-import { ResponseService } from '@/services/response.service';
+import { ResponseService } from '@/lib/services/response.service';
 import { parseTemplatePlaceholders } from '@/lib/utils/template-parser';
 
 // ---------------------------------------------------------------------------

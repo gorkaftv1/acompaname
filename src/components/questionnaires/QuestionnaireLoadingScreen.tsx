@@ -34,7 +34,7 @@ export default function QuestionnaireLoadingScreen() {
                 <p className="text-deep-calm-blue font-semibold text-lg">
                     Preparando tu cuestionario…
                 </p>
-                <p className="text-deep-calm-blue/60 text-sm max-w-xs mx-auto">
+                <p className="text-deep-calm-blue/60 text-sm max-w-3xl mx-auto">
                     Solo tardará un momento. Estamos cargando las preguntas para conocerte mejor.
                 </p>
             </div>

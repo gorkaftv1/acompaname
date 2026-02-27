@@ -34,11 +34,27 @@ export function createBrowserClient(): SupabaseClient<Database> {
     return supabaseInstance
   }
 
+  // Prevenir que requests se queden colgados eternamente (ej. tab suspendida al volver de sleep)
+  const customFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), 10000) // 10s timeout
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal })
+      return response
+    } finally {
+      clearTimeout(id)
+    }
+  }
+
   supabaseInstance = withAutoTrim(
-    createSSRBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
+    createSSRBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: customFetch
+      }
+    })
   )
 
-  logger.info('Supabase', 'Singleton client created (SSR cookie sync enabled, w/ auto-trim proxy)')
+  logger.info('Supabase', 'Singleton client created (SSR cookie sync enabled, w/ auto-trim proxy, w/ custom fetch timeout)')
 
   return supabaseInstance
 }

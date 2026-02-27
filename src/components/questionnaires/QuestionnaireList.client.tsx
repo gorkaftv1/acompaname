@@ -8,19 +8,15 @@ import { useQuestionnaireContext } from '@/lib/hooks/useQuestionnaireContext';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 import { QuestionnaireCard } from './QuestionnaireCard';
+import { WHO5QuestionnaireCard } from './WHO5QuestionnaireCard';
 import { CompletedSessionCard } from './CompletedSessionCard';
 import type { QuestionnaireWithProgress, CompletedSessionWithDetails } from '@/types/questionnaire.types';
 import type { CardVariant } from '@/types/questionnaire.types';
 import { SectionHeader, EmptySection } from './QuestionnaireSectionHeader';
 
-/** Questionnaire IDs that have a dedicated standalone route */
-const STANDALONE_ROUTES: Record<string, string> = {
-    'b0000000-0000-0000-0000-000000000002': '/who-5',
-};
-
 const getCardVariant = (item: QuestionnaireWithProgress): CardVariant => {
     if (item.questionnaire.type === 'onboarding') return 'onboarding';
-    if (STANDALONE_ROUTES[item.questionnaire.id]) return 'who5';
+    if (item.questionnaire.type === 'who5') return 'who5';
     return 'normal';
 };
 
@@ -60,7 +56,7 @@ export function QuestionnaireListClient({
     // Detect if onboarding is completed from the completed sessions list
     const hasCompletedOnboarding = completed.some((s) => s.isOnboarding);
 
-    const resolveRoute = (id: string) => STANDALONE_ROUTES[id] ?? `/questionnaires/session/${id}`;
+    const resolveRoute = (id: string, type: string) => type === 'who5' ? `/who-5/${id}` : `/questionnaires/session/${id}`;
 
     const handleStart = (item: QuestionnaireWithProgress) => {
         const { id, type } = item.questionnaire;
@@ -72,8 +68,8 @@ export function QuestionnaireListClient({
         }
 
         // Check if questionnaire is a standalone (WHO-5) — always allow
-        if (STANDALONE_ROUTES[id]) {
-            router.push(STANDALONE_ROUTES[id]);
+        if (type === 'who5') {
+            router.push(`/who-5/${id}`);
             return;
         }
         // Guard: non-onboarding questionnaires require onboarding completion
@@ -89,10 +85,10 @@ export function QuestionnaireListClient({
             });
             return;
         }
-        router.push(resolveRoute(id));
+        router.push(resolveRoute(id, type));
     };
 
-    const handleContinue = (id: string) => router.push(resolveRoute(id));
+    const handleContinue = (id: string, type: string) => router.push(resolveRoute(id, type));
     const handleViewSession = (sessionId: string) => router.push(`/questionnaires/session/${sessionId}`);
     const handleViewResponses = (sessionId: string) => router.push(`/questionnaires/complete/${sessionId}`);
 
@@ -118,18 +114,32 @@ export function QuestionnaireListClient({
                                 );
                                 return (
                                     <motion.div key={item.questionnaire.id} variants={itemVariants}>
-                                        <QuestionnaireCard
-                                            item={item}
-                                            variant={getCardVariant(item)}
-                                            onContinue={() => handleContinue(item.questionnaire.id)}
-                                            onViewResponses={
-                                                completedSession
-                                                    ? () => handleViewResponses(completedSession.sessionId)
-                                                    : undefined
-                                            }
-                                            completedSessionId={completedSession?.sessionId}
-                                            resolvePlaceholders={resolvePlaceholders}
-                                        />
+                                        {getCardVariant(item) === 'who5' ? (
+                                            <WHO5QuestionnaireCard
+                                                item={item}
+                                                onContinue={() => handleContinue(item.questionnaire.id, item.questionnaire.type)}
+                                                onViewResponses={
+                                                    completedSession
+                                                        ? () => handleViewResponses(completedSession.sessionId)
+                                                        : undefined
+                                                }
+                                                completedSessionId={completedSession?.sessionId}
+                                                resolvePlaceholders={resolvePlaceholders}
+                                            />
+                                        ) : (
+                                            <QuestionnaireCard
+                                                item={item}
+                                                variant={getCardVariant(item) as 'onboarding' | 'normal'}
+                                                onContinue={() => handleContinue(item.questionnaire.id, item.questionnaire.type)}
+                                                onViewResponses={
+                                                    completedSession
+                                                        ? () => handleViewResponses(completedSession.sessionId)
+                                                        : undefined
+                                                }
+                                                completedSessionId={completedSession?.sessionId}
+                                                resolvePlaceholders={resolvePlaceholders}
+                                            />
+                                        )}
                                     </motion.div>
                                 );
                             })}
@@ -149,18 +159,32 @@ export function QuestionnaireListClient({
                                 );
                                 return (
                                     <motion.div key={item.questionnaire.id} variants={itemVariants}>
-                                        <QuestionnaireCard
-                                            item={item}
-                                            variant={getCardVariant(item)}
-                                            onStart={() => handleStart(item)}
-                                            onViewResponses={
-                                                completedSession
-                                                    ? () => handleViewResponses(completedSession.sessionId)
-                                                    : undefined
-                                            }
-                                            completedSessionId={completedSession?.sessionId}
-                                            resolvePlaceholders={resolvePlaceholders}
-                                        />
+                                        {getCardVariant(item) === 'who5' ? (
+                                            <WHO5QuestionnaireCard
+                                                item={item}
+                                                onStart={() => handleStart(item)}
+                                                onViewResponses={
+                                                    completedSession
+                                                        ? () => handleViewResponses(completedSession.sessionId)
+                                                        : undefined
+                                                }
+                                                completedSessionId={completedSession?.sessionId}
+                                                resolvePlaceholders={resolvePlaceholders}
+                                            />
+                                        ) : (
+                                            <QuestionnaireCard
+                                                item={item}
+                                                variant={getCardVariant(item) as 'onboarding' | 'normal'}
+                                                onStart={() => handleStart(item)}
+                                                onViewResponses={
+                                                    completedSession
+                                                        ? () => handleViewResponses(completedSession.sessionId)
+                                                        : undefined
+                                                }
+                                                completedSessionId={completedSession?.sessionId}
+                                                resolvePlaceholders={resolvePlaceholders}
+                                            />
+                                        )}
                                     </motion.div>
                                 );
                             })}

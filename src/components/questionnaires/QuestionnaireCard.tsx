@@ -15,7 +15,7 @@ import type { CardVariant, QuestionnaireWithProgress } from '@/types/questionnai
 
 export interface QuestionnaireCardProps {
     item: QuestionnaireWithProgress;
-    variant: CardVariant;
+    variant: Exclude<CardVariant, 'who5'>;
     onStart?: () => void;
     onContinue?: () => void;
     onViewResponses?: () => void;
@@ -41,7 +41,7 @@ interface VariantConfig {
     actionIcon: React.ReactNode;
 }
 
-const VARIANTS: Record<CardVariant, VariantConfig> = {
+const VARIANTS: Record<Exclude<CardVariant, 'who5'>, VariantConfig> = {
     onboarding: {
         cardBg: 'bg-[#F2F9F9]',
         cardRing: 'ring-[#BBDCD2]',
@@ -54,19 +54,6 @@ const VARIANTS: Record<CardVariant, VariantConfig> = {
         subtitleColor: 'text-[#4A9B9B]',
         iconColor: () => 'text-[#4A9B9B]',
         actionIcon: <BookOpen size={16} />,
-    },
-    who5: {
-        cardBg: 'bg-[#FEFDFB]',
-        cardRing: 'ring-[#D9C9A8]',
-        iconBg: 'bg-[#FDF4E7]',
-        badgeLabel: 'Bienestar',
-        badgeBg: 'bg-[#FDF4E7]',
-        badgeBorder: 'border-[#D9C9A8]',
-        badgeText: 'text-[#8B6A2E]',
-        subtitle: 'Evalúa tu bienestar mental de las últimas 2 semanas',
-        subtitleColor: 'text-[#8B6A2E]',
-        iconColor: (state) => state === 'inProgress' ? 'text-[#E8B563]' : 'text-[#8B6A2E]',
-        actionIcon: <Heart size={16} />,
     },
     normal: {
         cardBg: 'bg-white',
@@ -104,13 +91,6 @@ function getButtonContent(
         return {
             label: isInProgress ? 'Continuar' : 'Comenzar',
             className: 'bg-[#4A9B9B] text-white hover:bg-[#3a8888] shadow-sm',
-        };
-    }
-
-    if (variant === 'who5') {
-        return {
-            label: isCompleted ? 'Repetir' : isInProgress ? 'Continuar' : 'Comenzar',
-            className: 'bg-[#E8B563] text-white hover:bg-[#d4a050] shadow-sm',
         };
     }
 

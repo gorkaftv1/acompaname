@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import PageLayout from '@/components/PageLayout';
 import AdminEditQuestionnaireClient from '@/components/admin/AdminEditQuestionnaireClient';
+import AdminEditWHO5QuestionnaireClient from '@/components/admin/AdminEditWHO5QuestionnaireClient';
 import { AdminQuestionnaireService } from '@/lib/services/admin-questionnaire.service';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,11 @@ export default async function EditQuestionnairePage({ params }: { params: Promis
     return (
         <ProtectedRoute>
             <PageLayout className="bg-[#F5F3EF]">
-                <AdminEditQuestionnaireClient initialData={initialData} />
+                {initialData.type === 'who5' ? (
+                    <AdminEditWHO5QuestionnaireClient initialData={initialData} />
+                ) : (
+                    <AdminEditQuestionnaireClient initialData={initialData} />
+                )}
             </PageLayout>
         </ProtectedRoute>
     );

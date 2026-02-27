@@ -194,7 +194,11 @@ BEGIN
       'El cuestionario está publicado y es inmutable. Archívalo y crea uno nuevo.';
   END IF;
 
-  RETURN OLD;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
 END;
 $$;
 

@@ -1,4 +1,4 @@
-import type { AnswerEntry } from '@/lib/services/questionnaire-engine.types';
+import type { AnswerEntry } from '@/types/questionnaire-engine.types';
 import type { Json } from '@/lib/supabase/database.types';
 
 export interface ShowIfCondition {

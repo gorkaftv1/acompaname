@@ -335,7 +335,7 @@ BEGIN
     '¿Cómo describirías el clima con esta persona últimamente?',
     NULL, 'single_choice', NULL),
   (P35B, q_id, 37,
-    'Si tuvieras que quedarte con el clima que más pesa hoy, ¿cuál sería?',
+    '¿Cómo dirías que se ha sentido el ambiente hoy?',
     NULL, 'single_choice',
     jsonb_build_object('operator','OR','conditions',jsonb_build_array(
       jsonb_build_object('question_id',P35,'option_ids',jsonb_build_array(P35_O5))

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import WHO5Results from '@/components/who5/WHO5Results';
-import { who5ScoreCategories, type WHO5Result } from '@/lib/who5/who5.config';
+import { who5ScoreCategories } from '@/lib/services/who5.service';
+import type { WHO5Result } from '@/types/who5.types';
 
 import type { CompletedSessionDetails } from '@/types/questionnaire.types';
 

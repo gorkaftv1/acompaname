@@ -8,9 +8,9 @@
  * 4. Redirige a dashboard si ya está autenticado e intenta ir a login/register
  */
 
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { logger } from '@/lib/utils/logger'
+import { updateSession } from '@/lib/supabase/middleware'
 
 // Protected routes that require authentication
 const protectedRoutes = ['/dashboard']
@@ -25,35 +25,18 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   logger.debug('Middleware', 'Checking:', pathname)
 
-  // Create response
-  let response = NextResponse.next({
-    request,
-  })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
-
   try {
-    // Refresh session if expired - required for Server Components
-    const { data: { user }, error } = await supabase.auth.getUser()
+    // Refresh session if expired and sync cookies - required for Server Components
+    const { response, user, error } = await updateSession(request)
+
+    if (error) {
+      logger.debug('Middleware', 'Auth check error:', error)
+    }
 
     const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
     const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
     const isClientProtectedRoute = clientProtectedRoutes.some(route => pathname.startsWith(route))
+
     logger.debug('Middleware', 'Auth check', {
       pathname,
       hasUser: !!user,
@@ -66,7 +49,12 @@ export async function middleware(request: NextRequest) {
       logger.debug('Middleware', 'Blocking protected route, redirecting to /login')
       const redirectUrl = new URL('/login', request.url)
       redirectUrl.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(redirectUrl)
+      // Preservar cookies configuradas por updateSession
+      const redirectResponse = NextResponse.redirect(redirectUrl)
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
+      });
+      return redirectResponse
     }
 
     // For client protected routes, let them through - client will handle protection
@@ -78,14 +66,20 @@ export async function middleware(request: NextRequest) {
     // Redirect authenticated users from auth routes to dashboard
     if (isAuthRoute && user) {
       logger.debug('Middleware', 'User authenticated, redirecting to /dashboard')
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url))
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
+      });
+      return redirectResponse
     }
     logger.debug('Middleware', 'Access allowed')
+
+    return response
+
   } catch (error) {
     logger.error('Middleware', 'Error:', error)
+    return NextResponse.next({ request })
   }
-
-  return response
 }
 
 export const config = {

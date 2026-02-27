@@ -9,7 +9,7 @@
  */
 
 import { motion } from 'framer-motion';
-import type { OptionNode } from '@/lib/services/questionnaire-engine.types';
+import type { OptionNode } from '@/types/questionnaire-engine.types';
 
 interface QuestionChoiceProps {
     questionText: string;

@@ -11,7 +11,7 @@ import { EmotionType } from '@/types';
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
   emotion?: EmotionType;
@@ -40,10 +40,10 @@ export default function ChatInterface() {
 
   const loadChatHistory = async () => {
     setIsLoadingHistory(true);
-    
+
     try {
       const result = await ChatService.getChatHistory({ limit: 100 });
-      
+
       if (result.success && result.messages) {
         const chatMessages: ChatMessage[] = result.messages
           .map(msg => ({
@@ -53,14 +53,14 @@ export default function ChatInterface() {
             timestamp: new Date(msg.createdAt),
             emotion: msg.emotion || undefined,
           }));
-        
+
         setMessages(chatMessages);
-        
+
         // Set emotion based on last message
         const lastAssistantMessage = chatMessages
           .filter(m => m.role === 'assistant' && m.emotion)
           .pop();
-        
+
         if (lastAssistantMessage?.emotion) {
           setCurrentEmotion(lastAssistantMessage.emotion);
         }
@@ -77,7 +77,7 @@ export default function ChatInterface() {
 
     const messageContent = inputValue.trim();
     const tempUserId = `temp-${Date.now()}`;
-    
+
     // Add user message immediately to UI for instant feedback
     const userMessage: ChatMessage = {
       id: tempUserId,
@@ -85,7 +85,7 @@ export default function ChatInterface() {
       content: messageContent,
       timestamp: new Date(),
     };
-    
+
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
@@ -107,19 +107,19 @@ export default function ChatInterface() {
 
       // Update user message with real ID from DB
       if (result.userMessage) {
-        setMessages((prev) => 
-          prev.map(msg => 
-            msg.id === tempUserId 
+        setMessages((prev) =>
+          prev.map(msg =>
+            msg.id === tempUserId
               ? {
-                  ...msg,
-                  id: result.userMessage!.id,
-                  timestamp: new Date(result.userMessage!.createdAt),
-                }
+                ...msg,
+                id: result.userMessage!.id,
+                timestamp: new Date(result.userMessage!.createdAt),
+              }
               : msg
           )
         );
       }
-      
+
       // Add AI response
       if (result.aiMessage) {
         const aiMessage: ChatMessage = {
@@ -129,9 +129,9 @@ export default function ChatInterface() {
           timestamp: new Date(result.aiMessage.createdAt),
           emotion: result.aiMessage.emotion || undefined,
         };
-        
+
         setMessages((prev) => [...prev, aiMessage]);
-        
+
         // Update current emotion based on AI response
         if (result.aiMessage.emotion) {
           console.log('🎨 Actualizando emoción del blob:', {
@@ -190,7 +190,7 @@ export default function ChatInterface() {
             Estoy aquí para escucharte
           </p>
         </div>
-        
+
       </motion.div>
 
       {/* Chat Container */}
@@ -224,21 +224,18 @@ export default function ChatInterface() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.3 }}
-                      className={`flex ${
-                        message.role === 'user' ? 'justify-end' : 'justify-start'
-                      }`}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'
+                        }`}
                     >
                       <div
-                        className={`flex flex-col max-w-[70%] ${
-                          message.role === 'user' ? 'items-end' : 'items-start'
-                        }`}
+                        className={`flex flex-col max-w-[70%] ${message.role === 'user' ? 'items-end' : 'items-start'
+                          }`}
                       >
                         <div
-                          className={`px-4 py-3 ${
-                            message.role === 'user'
+                          className={`px-4 py-3 ${message.role === 'user'
                               ? 'bg-[#4A9B9B] text-white rounded-2xl rounded-br-sm'
                               : 'bg-[#A8C5B5]/20 text-[#2C5F7C] rounded-2xl rounded-bl-sm'
-                          }`}
+                            }`}
                         >
                           <p className="text-base leading-relaxed whitespace-pre-wrap">
                             {message.content}

@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { sanitizeString } from '@/lib/utils/sanitize';
 import type { Database } from '@/lib/supabase/database.types';
-import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engine.types';
+import type { QuestionNode, OptionNode } from '@/types/questionnaire-engine.types';
 
 // ---------------------------------------------------------------------------
 // Tipos internos derivados del schema
@@ -155,6 +155,42 @@ export class QuestionnaireService {
     if (qErr || !qData) return null;
 
     const questionsMap = await this.getQuestionsMap(id, supabase);
+
+    return {
+      ...qData,
+      questionsMap
+    };
+  }
+
+  /**
+   * Obtiene el cuestionario WHO-5 publicado más reciente.
+   */
+  static async getLatestWHO5(
+    supabaseClient?: SupabaseClient<Database>,
+  ): Promise<(Pick<QuestionnaireRow, 'id' | 'title' | 'description' | 'status'> & { questionsMap: Map<string, QuestionNode> }) | null> {
+    const supabase = supabaseClient ?? createBrowserClient();
+
+    console.log('[QuestionnaireService][getLatestWHO5] Cargando último WHO-5');
+    const { data: qData, error: qErr } = await supabase
+      .from('questionnaires')
+      .select('id, title, description, status')
+      .eq('type', 'who5')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (qErr) {
+      console.error('[QuestionnaireService][getLatestWHO5] Error cargando último WHO-5', { error: qErr });
+      return null;
+    }
+    if (!qData) {
+      console.log('[QuestionnaireService][getLatestWHO5] No se encontró ningún cuestionario WHO-5 publicado');
+      return null;
+    }
+    console.log('[QuestionnaireService][getLatestWHO5] Cuestionario WHO-5 básico cargado', { qData });
+
+    const questionsMap = await this.getQuestionsMap(qData.id, supabase);
 
     return {
       ...qData,

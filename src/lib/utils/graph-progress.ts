@@ -1,4 +1,4 @@
-import type { QuestionNode } from '@/lib/services/questionnaire-engine.types';
+import type { QuestionNode } from '@/types/questionnaire-engine.types';
 
 export interface LinearProgress {
     currentStep: number;

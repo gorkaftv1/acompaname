@@ -8,7 +8,7 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { EmotionalCompanion } from '@/components/EmotionalCompanion';
 import { Button, Input, Checkbox } from '@/components/ui';
 import { Card } from '@/components/ui/Card';
-import { ResponseService } from '@/services/response.service';
+import { ResponseService } from '@/lib/services/response.service';
 
 export default function RegisterForm() {
   const router = useRouter();

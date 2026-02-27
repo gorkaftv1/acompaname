@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { QuestionNode, OptionNode } from '@/lib/services/questionnaire-engine.types';
+import type { QuestionNode, OptionNode } from '@/types/questionnaire-engine.types';
 
 // ---------------------------------------------------------------------------
 // Types

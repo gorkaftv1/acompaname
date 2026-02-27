@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { EmotionalCompanion } from '@/components/EmotionalCompanion';
 import Link from 'next/link';
-import type { WHO5Result } from '@/lib/who5/who5.config';
+import type { WHO5Result } from '@/types/who5.types';
 import WHO5ScoreCard from './WHO5ScoreCard';
 
 // ---------------------------------------------------------------------------

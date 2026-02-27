@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import PageLayout from '@/components/PageLayout';
 import QuestionnaireSessionClient from '@/components/questionnaires/QuestionnaireSessionClient';
-import { QuestionnaireService } from '@/services/questionnaire.service';
+import { QuestionnaireService } from '@/lib/services/questionnaire.service';
 
 export const dynamic = 'force-dynamic';
 

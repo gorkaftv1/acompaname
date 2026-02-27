@@ -1,8 +1,8 @@
 import React from 'react';
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { QuestionnaireService } from '@/services/questionnaire.service';
-import { ResponseService } from '@/services/response.service';
+import { QuestionnaireService } from '@/lib/services/questionnaire.service';
+import { ResponseService } from '@/lib/services/response.service';
 import PageLayout from '@/components/PageLayout';
 import { QuestionnaireListClient } from '@/components/questionnaires/QuestionnaireList.client';
 import type { QuestionnaireWithProgress, CompletedSessionWithDetails } from '@/types/questionnaire.types';

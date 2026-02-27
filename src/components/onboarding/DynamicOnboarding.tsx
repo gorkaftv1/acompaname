@@ -20,25 +20,25 @@ import { useEffect, useReducer, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { QuestionnaireService } from '@/services/questionnaire.service';
-import { ResponseService } from '@/services/response.service';
-import { ProfileService } from '@/services/profile.service';
+import { QuestionnaireService } from '@/lib/services/questionnaire.service';
+import { ResponseService } from '@/lib/services/response.service';
+import { ProfileService } from '@/lib/services/profile.service';
 import type {
     OptionNode,
     QuestionNode,
     QuestionnaireEngineState,
-} from '@/lib/services/questionnaire-engine.types';
+} from '@/types/questionnaire-engine.types';
 import { useQuestionnaireContext } from '@/lib/hooks/useQuestionnaireContext';
 import { getLinearProgress, type LinearProgress } from '@/lib/utils/graph-progress';
 import { evaluateShowIf } from '@/lib/utils/show-if';
-import type { AnswerEntry } from '@/lib/services/questionnaire-engine.types';
+import type { AnswerEntry } from '@/types/questionnaire-engine.types';
 import { logger } from '@/lib/utils/logger';
 import { useAuthStore } from '@/lib/store/auth.store';
 
 import { EmotionalCompanion } from '@/components/EmotionalCompanion';
 import QuestionChoice from './QuestionChoice';
 import QuestionText from './QuestionText';
-import QuestionnaireLoadingScreen from './QuestionnaireLoadingScreen';
+import QuestionnaireLoadingScreen from '../questionnaires/QuestionnaireLoadingScreen';
 
 // ---------------------------------------------------------------------------
 // Constantes
